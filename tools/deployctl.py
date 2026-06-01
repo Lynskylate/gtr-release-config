@@ -433,6 +433,7 @@ def build_apply_script(
         set -euo pipefail
         python3 - <<'PY'
         import json
+        import shutil
         import shlex
         import subprocess
         import time
@@ -577,7 +578,17 @@ def build_apply_script(
         for container in payload["containers"]:
             image_archive_path = container.get("image_archive_path")
             if image_archive_path:
-                run_user_args(["podman", "load", "-i", image_archive_path])
+                if shutil.which("skopeo"):
+                    run_user_args(
+                        [
+                            "skopeo",
+                            "copy",
+                            f"docker-archive:{image_archive_path}",
+                            f"containers-storage:{container['image']}",
+                        ]
+                    )
+                else:
+                    run_user_args(["podman", "load", "-i", image_archive_path])
                 run(["rm", "-f", image_archive_path])
             else:
                 run_user(f"podman pull {container['image']}")

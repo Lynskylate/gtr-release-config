@@ -182,6 +182,8 @@ class TestDeployCtl(unittest.TestCase):
         self.assertIn('"podman",', script)
         self.assertIn('"login",', script)
         self.assertIn('image_archive_path = container.get("image_archive_path")', script)
+        self.assertIn('if shutil.which("skopeo"):', script)
+        self.assertIn('"containers-storage:{container[\'image\']}"', script)
         self.assertIn('run_user_args(["podman", "load", "-i", image_archive_path])', script)
         self.assertIn(
             'ghcr.io/lynskylate/corp-finance-monitor-backend:release-sha',
