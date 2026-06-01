@@ -332,6 +332,8 @@ def download_stack_image_artifacts(stack: dict[str, Any], archive_dir: Path) -> 
                 [
                     skopeo_path,
                     "copy",
+                    "--format",
+                    "v2s2",
                     f"oci-archive:{archive_path}",
                     f"docker-archive:{converted_path}:{image_reference}",
                 ]
