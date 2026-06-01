@@ -4,15 +4,31 @@ import argparse
 import json
 from pathlib import Path, PurePosixPath
 
+import yaml
+
+
+ZERO_DIGEST = "sha256:" + ("0" * 64)
+
+
+def stack_has_ready_images(repo_root: Path, environment: str, service: str) -> bool:
+    path = repo_root / "environments" / environment / "stacks" / f"{service}.yaml"
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    containers = data.get("containers", [])
+    return bool(containers) and all(container.get("image_digest") != ZERO_DIGEST for container in containers)
+
 
 def build_matrix(
     changed_files: list[str],
     service: str | None = None,
     environment: str | None = None,
+    repo_root: Path | None = None,
 ) -> dict[str, list[dict[str, str]]]:
+    root = repo_root or Path.cwd()
     if service:
         if not environment:
             raise ValueError("environment is required when service is specified")
+        if not stack_has_ready_images(root, environment, service):
+            return {"include": []}
         return {"include": [{"service": service, "environment": environment}]}
 
     entries: list[dict[str, str]] = []
@@ -26,6 +42,8 @@ def build_matrix(
             continue
         key = (path.stem, parts[1])
         if key in seen:
+            continue
+        if not stack_has_ready_images(root, parts[1], path.stem):
             continue
         seen.add(key)
         entries.append({"service": path.stem, "environment": parts[1]})
