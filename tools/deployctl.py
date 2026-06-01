@@ -445,7 +445,8 @@ def build_apply_script(
         home_dir = Path(payload["home_dir"])
         unit_dir = Path(payload["unit_dir"])
         network_name = payload["network_name"]
-        secret_root = Path(payload["secret_root"]) / service_user
+        secret_base_root = Path(payload["secret_root"])
+        secret_root = secret_base_root / service_user
         managed_files = payload.get("managed_files", [])
         managed_file_paths = {item["path"] for item in managed_files}
         registry_auth = payload.get("registry_auth")
@@ -528,7 +529,9 @@ def build_apply_script(
         ensure_subid("/etc/subgid", service_user)
         run(["loginctl", "enable-linger", service_user])
         run(["systemctl", "start", f"user@{uid}.service"])
-        run(["mkdir", "-p", str(service_root), str(secret_root), str(unit_dir)])
+        run(["mkdir", "-p", str(service_root), str(secret_base_root), str(secret_root), str(unit_dir)])
+        run(["chmod", "0711", str(secret_base_root)])
+        run(["chmod", "0700", str(secret_root)])
         run(["chown", "-R", f"{service_user}:{service_user}", str(service_root), str(secret_root)])
 
         for managed_file in managed_files:

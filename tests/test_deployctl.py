@@ -175,6 +175,7 @@ class TestDeployCtl(unittest.TestCase):
             )
 
         self.assertIn('managed_file_paths = {item["path"] for item in managed_files}', script)
+        self.assertIn('secret_base_root = Path(payload["secret_root"])', script)
         self.assertIn('def ensure_subid(path: str, username: str) -> None:', script)
         self.assertIn('env_path = secret_root / f"{container[\'env_profile\']}.env"', script)
         self.assertIn('f"HOME={home_dir}"', script)
@@ -201,6 +202,8 @@ class TestDeployCtl(unittest.TestCase):
             ),
         )
         self.assertIn('run(["systemctl", "start", f"user@{uid}.service"])', script)
+        self.assertIn('run(["chmod", "0711", str(secret_base_root)])', script)
+        self.assertIn('run(["chmod", "0700", str(secret_root)])', script)
         self.assertIn('target_path.write_text(managed_file["content"], encoding="utf-8")', script)
         self.assertIn('run_user(f"podman pull {container[\'image\']}")', script)
 
