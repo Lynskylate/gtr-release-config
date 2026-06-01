@@ -197,6 +197,8 @@ def render_service_unit(stack: dict[str, Any], container: dict[str, Any], target
         "--env-file",
         f"{target.secret_root}/{stack['service_user']}/{container['env_profile']}.env",
     ]
+    if container.get("ip_address"):
+        podman_args.extend(["--ip", str(container["ip_address"])])
     if "host_port" in container:
         podman_args.extend(
             [
@@ -204,6 +206,9 @@ def render_service_unit(stack: dict[str, Any], container: dict[str, Any], target
                 f"127.0.0.1:{container['host_port']}:{container['container_port']}",
             ]
         )
+    extra_hosts = container.get("extra_hosts", [])
+    for host in extra_hosts:
+        podman_args.extend(["--add-host", str(host)])
     aliases = container.get("network_aliases", [])
     if aliases:
         podman_args.extend(f"--network-alias={alias}" for alias in aliases)
@@ -212,6 +217,9 @@ def render_service_unit(stack: dict[str, Any], container: dict[str, Any], target
         podman_args.extend(["--memory", str(limits["memory"])])
     if limits.get("cpus"):
         podman_args.extend(["--cpus", str(limits["cpus"])])
+    entrypoint = container.get("entrypoint")
+    if entrypoint:
+        podman_args.extend(["--entrypoint", str(entrypoint)])
     for volume in container.get("volumes", []):
         podman_args.extend(
             [
@@ -221,6 +229,14 @@ def render_service_unit(stack: dict[str, Any], container: dict[str, Any], target
         )
     quoted_args = " ".join(shlex.quote(arg) for arg in podman_args)
     quoted_image = shlex.quote(image)
+    command_args = container.get("command", [])
+    if isinstance(command_args, str):
+        quoted_command = shlex.quote(command_args)
+    else:
+        quoted_command = " ".join(shlex.quote(str(arg)) for arg in command_args)
+    exec_start = f"ExecStart=/usr/bin/podman run {quoted_args} {quoted_image}"
+    if quoted_command:
+        exec_start = f"{exec_start} {quoted_command}"
 
     service_lines = [
         "",
@@ -228,7 +244,7 @@ def render_service_unit(stack: dict[str, Any], container: dict[str, Any], target
         "Restart=always",
         "TimeoutStartSec=120",
         f"ExecStartPre=-/usr/bin/podman rm -f {container['container_name']}",
-        f"ExecStart=/usr/bin/podman run {quoted_args} {quoted_image}",
+        exec_start,
         f"ExecStop=/usr/bin/podman stop -t 10 {container['container_name']}",
         f"ExecStopPost=-/usr/bin/podman rm -f {container['container_name']}",
         "",
@@ -478,8 +494,7 @@ def build_apply_script(
             with subid_path.open("a", encoding="utf-8") as handle:
                 handle.write(f"{username}:{aligned_start}:65536\\n")
 
-        def run_user_args(args: list[str], input_text: str | None = None) -> None:
-            uid = subprocess.check_output(["id", "-u", service_user], text=True).strip()
+        def build_user_command(args: list[str]) -> list[str]:
             runtime_dir = f"/run/user/{uid}"
             bus_address = f"unix:path={runtime_dir}/bus"
             command = [
@@ -493,8 +508,11 @@ def build_apply_script(
                 f"DBUS_SESSION_BUS_ADDRESS={bus_address}",
             ]
             command.extend(args)
+            return command
+
+        def run_user_args(args: list[str], input_text: str | None = None) -> None:
             run(
-                command,
+                build_user_command(args),
                 cwd=str(home_dir),
                 input=input_text,
                 text=True,
@@ -508,6 +526,30 @@ def build_apply_script(
                     f"cd {shlex.quote(str(home_dir))} && {command}",
                 ]
             )
+
+        def normalize_cni_network_config(network_name: str) -> None:
+            cni_dir = home_dir / ".config" / "cni" / "net.d"
+            for suffix in (".conflist", ".conf", ".json"):
+                candidate = cni_dir / f"{network_name}{suffix}"
+                if not candidate.exists():
+                    continue
+                try:
+                    payload = json.loads(candidate.read_text(encoding="utf-8"))
+                except json.JSONDecodeError:
+                    return
+                plugins = payload.get("plugins", [])
+                stripped_plugins = [
+                    plugin for plugin in plugins if plugin.get("type") != "dnsname"
+                ]
+                if stripped_plugins != plugins:
+                    payload["plugins"] = stripped_plugins
+                    plugins = stripped_plugins
+                if payload.get("cniVersion") == "1.0.0" and any(
+                    plugin.get("type") == "firewall" for plugin in plugins
+                ):
+                    payload["cniVersion"] = "0.4.0"
+                candidate.write_text(json.dumps(payload, indent=3), encoding="utf-8")
+                return
 
         try:
             run(["id", service_user], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -566,6 +608,7 @@ def build_apply_script(
                 run(["chmod", "0644", image_archive_path])
 
         run_user(f"podman network exists {{network_name}} || podman network create {{network_name}}".format(network_name=network_name))
+        normalize_cni_network_config(network_name)
         if registry_auth and any(not container.get("image_archive_path") for container in payload["containers"]):
             run_user_args(
                 [
@@ -603,7 +646,18 @@ def build_apply_script(
 
         deadline = time.time() + payload["healthcheck"]["timeout"]
         healthcheck_url = payload["healthcheck"]["url"]
+        service_units = [container["unit_name"] for container in payload["containers"]]
         while time.time() < deadline:
+            units_active = subprocess.run(
+                build_user_command(["systemctl", "--user", "is-active", *service_units]),
+                cwd=str(home_dir),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                text=True,
+            )
+            if units_active.returncode != 0:
+                time.sleep(3)
+                continue
             result = subprocess.run(
                 ["curl", "--silent", "--show-error", "--fail", healthcheck_url],
                 stdout=subprocess.DEVNULL,

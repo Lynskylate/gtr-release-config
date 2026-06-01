@@ -42,19 +42,27 @@ class TestDeployCtl(unittest.TestCase):
             "env_profile": "corp-finance-monitor-frontend",
             "container_port": 80,
             "host_port": 8190,
+            "ip_address": "10.89.0.10",
+            "extra_hosts": ["backend:10.89.0.10"],
             "network_aliases": ["frontend"],
+            "entrypoint": "/bin/sh",
+            "command": ["-lc", "echo test"],
             "volumes": [{"source": "/srv/projects/cfm/data", "target": "/app/data", "mode": "rw"}],
         }
 
         unit = deployctl.render_service_unit(stack, container, target)
 
         self.assertIn("--publish 127.0.0.1:8190:80", unit)
+        self.assertIn("--ip 10.89.0.10", unit)
+        self.assertIn("--add-host backend:10.89.0.10", unit)
         self.assertIn(
             "--env-file /srv/project-secrets/svc-corp-finance-monitor/corp-finance-monitor-frontend.env",
             unit,
         )
+        self.assertIn("--entrypoint /bin/sh", unit)
         self.assertIn("--volume /srv/projects/cfm/data:/app/data:rw", unit)
         self.assertIn("ExecStart=/usr/bin/podman run", unit)
+        self.assertIn(" -lc 'echo test'", unit)
         self.assertIn("ghcr.io/lynskylate/corp-finance-monitor-frontend:abc123", unit)
 
     def test_validate_repo_accepts_sample_stack(self) -> None:
@@ -176,7 +184,9 @@ class TestDeployCtl(unittest.TestCase):
 
         self.assertIn('managed_file_paths = {item["path"] for item in managed_files}', script)
         self.assertIn('secret_base_root = Path(payload["secret_root"])', script)
+        self.assertIn('def build_user_command(args: list[str]) -> list[str]:', script)
         self.assertIn('def ensure_subid(path: str, username: str) -> None:', script)
+        self.assertIn('def normalize_cni_network_config(network_name: str) -> None:', script)
         self.assertIn('env_path = secret_root / f"{container[\'env_profile\']}.env"', script)
         self.assertIn('f"HOME={home_dir}"', script)
         self.assertIn('registry_auth = payload.get("registry_auth")', script)
@@ -204,6 +214,9 @@ class TestDeployCtl(unittest.TestCase):
         self.assertIn('run(["systemctl", "start", f"user@{uid}.service"])', script)
         self.assertIn('run(["chmod", "0711", str(secret_base_root)])', script)
         self.assertIn('run(["chmod", "0700", str(secret_root)])', script)
+        self.assertIn('normalize_cni_network_config(network_name)', script)
+        self.assertIn('service_units = [container["unit_name"] for container in payload["containers"]]', script)
+        self.assertIn('build_user_command(["systemctl", "--user", "is-active", *service_units])', script)
         self.assertIn('target_path.write_text(managed_file["content"], encoding="utf-8")', script)
         self.assertIn('run_user(f"podman pull {container[\'image\']}")', script)
 
