@@ -74,19 +74,22 @@ jobs:
               --github-output "$GITHUB_OUTPUT"
           fi
       - name: Package deployment bundle
+        id: bundle
         shell: bash
         run: |
+          bundle_path="$RUNNER_TEMP/deployment-bundle.tar.gz"
           tar \
             --exclude='.git' \
             --exclude='.venv' \
             --exclude='__pycache__' \
-            -czf deployment-bundle.tar.gz \
+            -czf "$bundle_path" \
             .
+          echo "path=$bundle_path" >> "$GITHUB_OUTPUT"
       - name: Upload deployment bundle
         uses: actions/upload-artifact@v4
         with:
           name: deployment-bundle
-          path: deployment-bundle.tar.gz
+          path: ${{ steps.bundle.outputs.path }}
           if-no-files-found: error
           retention-days: 1
 
