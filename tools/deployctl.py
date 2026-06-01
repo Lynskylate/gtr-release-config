@@ -279,7 +279,58 @@ def login_local_registry(tool: str) -> None:
     )
 
 
+def stack_uses_release_artifacts(stack: dict[str, Any]) -> bool:
+    if not stack.get("artifact_source_repository") or not stack.get("artifact_source_run_id"):
+        return False
+    return all(container.get("image_artifact") for container in stack["containers"])
+
+
+def download_stack_image_artifacts(stack: dict[str, Any], archive_dir: Path) -> dict[str, Path]:
+    if not shutil.which("gh"):
+        raise RuntimeError("GitHub CLI is required to download release image artifacts")
+    archive_dir.mkdir(parents=True, exist_ok=True)
+    source_repository = str(stack["artifact_source_repository"])
+    source_run_id = str(stack["artifact_source_run_id"])
+    archives: dict[str, Path] = {}
+    for container in stack["containers"]:
+        artifact_name = container["image_artifact"]
+        service_ref = container["service_ref"]
+        download_dir = archive_dir / f"{service_ref}-download"
+        if download_dir.exists():
+            shutil.rmtree(download_dir)
+        download_dir.mkdir(parents=True, exist_ok=True)
+        run_local_command(
+            [
+                "gh",
+                "run",
+                "download",
+                source_run_id,
+                "--repo",
+                source_repository,
+                "--name",
+                artifact_name,
+                "--dir",
+                str(download_dir),
+            ]
+        )
+        candidates = sorted(download_dir.rglob("*.tar"))
+        if len(candidates) != 1:
+            raise RuntimeError(
+                f"expected exactly one image archive for {service_ref} from artifact {artifact_name}; "
+                f"found {len(candidates)}"
+            )
+        archive_path = archive_dir / f"{service_ref}.tar"
+        if archive_path.exists():
+            archive_path.unlink()
+        shutil.move(str(candidates[0]), str(archive_path))
+        shutil.rmtree(download_dir)
+        archives[service_ref] = archive_path
+    return archives
+
+
 def stage_stack_images(stack: dict[str, Any], archive_dir: Path) -> dict[str, Path]:
+    if stack_uses_release_artifacts(stack):
+        return download_stack_image_artifacts(stack, archive_dir)
     tool = find_local_image_tool()
     archive_dir.mkdir(parents=True, exist_ok=True)
     login_local_registry(tool)

@@ -258,6 +258,34 @@ class TestDeployCtl(unittest.TestCase):
             ],
         )
 
+    def test_stage_stack_images_prefers_release_artifacts(self) -> None:
+        stack = {
+            "artifact_source_repository": "Lynskylate/corp-finance-monitor",
+            "artifact_source_run_id": 26771237800,
+            "containers": [
+                {
+                    "service_ref": "corp-finance-monitor-backend",
+                    "image_artifact": "release-image-corp-finance-monitor-backend",
+                }
+            ],
+        }
+
+        def fake_run(cmd: list[str], **_: object) -> None:
+            download_dir = Path(cmd[cmd.index("--dir") + 1])
+            (download_dir / "corp-finance-monitor-backend.tar").write_text("archive", encoding="utf-8")
+
+        with tempfile.TemporaryDirectory() as tmpdir, patch(
+            "tools.deployctl.shutil.which",
+            side_effect=lambda candidate: "/usr/bin/gh" if candidate == "gh" else None,
+        ), patch(
+            "tools.deployctl.subprocess.run",
+            side_effect=fake_run,
+        ):
+            archives = deployctl.stage_stack_images(stack, Path(tmpdir))
+            archive_path = Path(tmpdir) / "corp-finance-monitor-backend.tar"
+            self.assertEqual(archives["corp-finance-monitor-backend"], archive_path)
+            self.assertTrue(archive_path.exists())
+
     def test_command_apply_uploads_image_archives_before_ssh(self) -> None:
         stack = {
             "service_name": "corp-finance-monitor",
