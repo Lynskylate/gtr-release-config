@@ -13,68 +13,48 @@ healthcheck:
   expect_status: 200
   timeout_seconds: 60
 managed_files:
-  - path: /srv/projects/corp-finance-monitor/config/config.yaml
-    mode: "0644"
-    content: |
-      engine:
-        run_once: true
-        interval_minutes: 360
-        fetch_delay_seconds: 0.5
-      storage:
-        backend: disk
-        base_dir: ./data
-      state_store:
-        backend: sqlite
-        path: ./data/.cfm_state/state.db
-      api:
-        enabled: true
-        host: 127.0.0.1
-        port: 8190
-      sources:
-        cninfo:
-          watchlist:
-            - stock: "000725"
-              org_id: "gssz0000725"
-              kinds: [annual, semi, q1, q3]
-        sse:
-          watchlist: []
-        hkex:
-          watchlist:
-            - stock: "00700"
-              kinds: [annual, interim]
-            - stock: "09988"
-              kinds: [annual, interim]
+- path: /srv/projects/corp-finance-monitor/config/config.yaml
+  mode: '0644'
+  content: "engine:\n  run_once: true\n  interval_minutes: 360\n  fetch_delay_seconds:\
+    \ 0.5\nstorage:\n  backend: disk\n  base_dir: ./data\nstate_store:\n  backend:\
+    \ sqlite\n  path: ./data/.cfm_state/state.db\napi:\n  enabled: true\n  host: 127.0.0.1\n\
+    \  port: 8190\nsources:\n  cninfo:\n    watchlist:\n      - stock: \"000725\"\n\
+    \        org_id: \"gssz0000725\"\n        kinds: [annual, semi, q1, q3]\n  sse:\n\
+    \    watchlist: []\n  hkex:\n    watchlist:\n      - stock: \"00700\"\n      \
+    \  kinds: [annual, interim]\n      - stock: \"09988\"\n        kinds: [annual,\
+    \ interim]\n"
 containers:
-  - service_ref: corp-finance-monitor-backend
-    container_name: corp-finance-monitor-backend
-    image_repository: ghcr.io/lynskylate/corp-finance-monitor-backend
-    image_digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
-    env_profile: corp-finance-monitor-backend
-    container_port: 8190
-    network_aliases:
-      - backend
-    resource_limits:
-      memory: 768m
-      cpus: "1.0"
-    volumes:
-      - source: /srv/projects/corp-finance-monitor/config/config.yaml
-        target: /app/config.yaml
-        mode: ro
-      - source: /srv/projects/corp-finance-monitor/data
-        target: /app/data
-        mode: rw
-  - service_ref: corp-finance-monitor-frontend
-    container_name: corp-finance-monitor-frontend
-    image_repository: ghcr.io/lynskylate/corp-finance-monitor-frontend
-    image_digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
-    env_profile: corp-finance-monitor-frontend
-    container_port: 80
-    host_port: 8190
-    depends_on:
-      - corp-finance-monitor-backend
-    network_aliases:
-      - frontend
-    resource_limits:
-      memory: 256m
-      cpus: "0.5"
+- service_ref: corp-finance-monitor-backend
+  container_name: corp-finance-monitor-backend
+  image_repository: ghcr.io/lynskylate/corp-finance-monitor-backend
+  image_digest: sha256:331ab360add4c6780c1c4cb9712439f49dc1d8f1704c75f48bdf404721770f26
+  env_profile: corp-finance-monitor-backend
+  container_port: 8190
+  network_aliases:
+  - backend
+  resource_limits:
+    memory: 768m
+    cpus: '1.0'
+  volumes:
+  - source: /srv/projects/corp-finance-monitor/config/config.yaml
+    target: /app/config.yaml
+    mode: ro
+  - source: /srv/projects/corp-finance-monitor/data
+    target: /app/data
+    mode: rw
+- service_ref: corp-finance-monitor-frontend
+  container_name: corp-finance-monitor-frontend
+  image_repository: ghcr.io/lynskylate/corp-finance-monitor-frontend
+  image_digest: sha256:d5a3f1d1943fda4e2ecd1aa5c9c0a6ae9184a9b54217280aabc340aaf975c7c3
+  env_profile: corp-finance-monitor-frontend
+  container_port: 80
+  host_port: 8190
+  depends_on:
+  - corp-finance-monitor-backend
+  network_aliases:
+  - frontend
+  resource_limits:
+    memory: 256m
+    cpus: '0.5'
 rollback_history: []
+updated_at: '2026-06-01T16:22:37.432687+00:00'
