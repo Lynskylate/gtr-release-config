@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import yaml
 
@@ -156,12 +158,23 @@ class TestDeployCtl(unittest.TestCase):
             ],
         }
 
-        script = deployctl.build_apply_script(stack, target)
+        with patch.dict(
+            os.environ,
+            {
+                "DEPLOYCTL_GHCR_USERNAME": "Lynskylate",
+                "DEPLOYCTL_GHCR_TOKEN": "token-value",
+            },
+            clear=False,
+        ):
+            script = deployctl.build_apply_script(stack, target)
 
         self.assertIn('managed_file_paths = {item["path"] for item in managed_files}', script)
         self.assertIn('def ensure_subid(path: str, username: str) -> None:', script)
         self.assertIn('env_path = secret_root / f"{container[\'env_profile\']}.env"', script)
         self.assertIn('f"HOME={home_dir}"', script)
+        self.assertIn('registry_auth = payload.get("registry_auth")', script)
+        self.assertIn('"podman",', script)
+        self.assertIn('"login",', script)
         self.assertIn('run(["systemctl", "start", f"user@{uid}.service"])', script)
         self.assertIn('target_path.write_text(managed_file["content"], encoding="utf-8")', script)
         self.assertIn('run_user(f"podman pull {container[\'image\']}")', script)

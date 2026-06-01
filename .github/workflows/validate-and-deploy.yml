@@ -114,6 +114,9 @@ jobs:
           python3 --version
           python3 -c "import yaml; print(yaml.__version__)"
       - name: Run deployctl
+        env:
+          DEPLOYCTL_GHCR_USERNAME: ${{ github.actor }}
+          DEPLOYCTL_GHCR_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           extra_args=()

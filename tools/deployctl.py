@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import copy
 import json
+import os
 import shlex
 import subprocess
 import sys
@@ -277,6 +278,14 @@ def build_apply_script(stack: dict[str, Any], target: TargetGroup) -> str:
             ),
         },
     }
+    registry_username = os.environ.get("DEPLOYCTL_GHCR_USERNAME")
+    registry_token = os.environ.get("DEPLOYCTL_GHCR_TOKEN")
+    if registry_username and registry_token:
+        data["registry_auth"] = {
+            "registry": "ghcr.io",
+            "username": registry_username,
+            "password": registry_token,
+        }
 
     script = textwrap.dedent(
         """\
@@ -297,6 +306,7 @@ def build_apply_script(stack: dict[str, Any], target: TargetGroup) -> str:
         secret_root = Path(payload["secret_root"]) / service_user
         managed_files = payload.get("managed_files", [])
         managed_file_paths = {item["path"] for item in managed_files}
+        registry_auth = payload.get("registry_auth")
 
         def run(cmd: list[str], **kwargs) -> None:
             subprocess.run(cmd, check=True, **kwargs)
@@ -325,25 +335,35 @@ def build_apply_script(stack: dict[str, Any], target: TargetGroup) -> str:
             with subid_path.open("a", encoding="utf-8") as handle:
                 handle.write(f"{username}:{aligned_start}:65536\\n")
 
-        def run_user(command: str) -> None:
+        def run_user_args(args: list[str], input_text: str | None = None) -> None:
             uid = subprocess.check_output(["id", "-u", service_user], text=True).strip()
             runtime_dir = f"/run/user/{uid}"
             bus_address = f"unix:path={runtime_dir}/bus"
+            command = [
+                "runuser",
+                "-u",
+                service_user,
+                "--",
+                "env",
+                f"HOME={home_dir}",
+                f"XDG_RUNTIME_DIR={runtime_dir}",
+                f"DBUS_SESSION_BUS_ADDRESS={bus_address}",
+            ]
+            command.extend(args)
             run(
+                command,
+                cwd=str(home_dir),
+                input=input_text,
+                text=True,
+            )
+
+        def run_user(command: str) -> None:
+            run_user_args(
                 [
-                    "runuser",
-                    "-u",
-                    service_user,
-                    "--",
-                    "env",
-                    f"HOME={home_dir}",
-                    f"XDG_RUNTIME_DIR={runtime_dir}",
-                    f"DBUS_SESSION_BUS_ADDRESS={bus_address}",
                     "bash",
                     "-lc",
                     f"cd {shlex.quote(str(home_dir))} && {command}",
-                ],
-                cwd=str(home_dir),
+                ]
             )
 
         try:
@@ -397,6 +417,18 @@ def build_apply_script(stack: dict[str, Any], target: TargetGroup) -> str:
             run(["chown", f"{service_user}:{service_user}", str(target_path)])
 
         run_user(f"podman network exists {{network_name}} || podman network create {{network_name}}".format(network_name=network_name))
+        if registry_auth:
+            run_user_args(
+                [
+                    "podman",
+                    "login",
+                    registry_auth["registry"],
+                    "--username",
+                    registry_auth["username"],
+                    "--password-stdin",
+                ],
+                input_text=registry_auth["password"],
+            )
         for container in payload["containers"]:
             run_user(f"podman pull {container['image']}")
         run_user("systemctl --user daemon-reload")
