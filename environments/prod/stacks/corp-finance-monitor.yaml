@@ -1,0 +1,80 @@
+apiVersion: deploy.lynskylate/v1alpha1
+kind: DeploymentStack
+service_name: corp-finance-monitor
+target_group: gtr-core
+runtime:
+  type: rootless-podman
+  network:
+    name: corp-finance-monitor
+service_user: svc-corp-finance-monitor
+exposure: tailscale
+healthcheck:
+  url: http://127.0.0.1:8190/healthz
+  expect_status: 200
+  timeout_seconds: 60
+managed_files:
+  - path: /srv/projects/corp-finance-monitor/config/config.yaml
+    mode: "0644"
+    content: |
+      engine:
+        run_once: true
+        interval_minutes: 360
+        fetch_delay_seconds: 0.5
+      storage:
+        backend: disk
+        base_dir: ./data
+      state_store:
+        backend: sqlite
+        path: ./data/.cfm_state/state.db
+      api:
+        enabled: true
+        host: 127.0.0.1
+        port: 8190
+      sources:
+        cninfo:
+          watchlist:
+            - stock: "000725"
+              org_id: "gssz0000725"
+              kinds: [annual, semi, q1, q3]
+        sse:
+          watchlist: []
+        hkex:
+          watchlist:
+            - stock: "00700"
+              kinds: [annual, interim]
+            - stock: "09988"
+              kinds: [annual, interim]
+containers:
+  - service_ref: corp-finance-monitor-backend
+    container_name: corp-finance-monitor-backend
+    image_repository: ghcr.io/lynskylate/corp-finance-monitor-backend
+    image_digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+    env_profile: corp-finance-monitor-backend
+    container_port: 8190
+    network_aliases:
+      - backend
+    resource_limits:
+      memory: 768m
+      cpus: "1.0"
+    volumes:
+      - source: /srv/projects/corp-finance-monitor/config/config.yaml
+        target: /app/config.yaml
+        mode: ro
+      - source: /srv/projects/corp-finance-monitor/data
+        target: /app/data
+        mode: rw
+  - service_ref: corp-finance-monitor-frontend
+    container_name: corp-finance-monitor-frontend
+    image_repository: ghcr.io/lynskylate/corp-finance-monitor-frontend
+    image_digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+    env_profile: corp-finance-monitor-frontend
+    container_port: 80
+    host_port: 8190
+    depends_on:
+      - corp-finance-monitor-backend
+    network_aliases:
+      - frontend
+    resource_limits:
+      memory: 256m
+      cpus: "0.5"
+rollback_history: []

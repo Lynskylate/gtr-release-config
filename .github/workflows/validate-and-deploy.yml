@@ -1,0 +1,98 @@
+name: Validate And Deploy
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      service:
+        description: Stack name to deploy
+        required: false
+        default: corp-finance-monitor
+      environment:
+        description: Target environment
+        required: false
+        default: prod
+      dry_run:
+        description: Run deployctl in dry-run mode
+        required: false
+        default: "true"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: python -m pip install -e .
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -p "test_*.py" -v
+      - name: Validate repository manifests
+        run: python scripts/validate_repo.py
+
+  plan-deploy:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    needs: validate
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+      has_changes: ${{ steps.matrix.outputs.has_changes }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: python -m pip install -e .
+      - name: Collect changed stack files
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          if [[ "${{ github.event.before }}" == "0000000000000000000000000000000000000000" ]]; then
+            git ls-files 'environments/*/stacks/*.yaml' > changed-stacks.txt
+          else
+            git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" > changed-stacks.txt
+          fi
+      - name: Build deployment matrix
+        id: matrix
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            python scripts/release_matrix.py \
+              --service "${{ inputs.service }}" \
+              --environment "${{ inputs.environment }}" \
+              --github-output "$GITHUB_OUTPUT"
+          else
+            python scripts/release_matrix.py \
+              --changed-file-list changed-stacks.txt \
+              --github-output "$GITHUB_OUTPUT"
+          fi
+
+  deploy:
+    if: needs.plan-deploy.outputs.has_changes == 'true'
+    needs: plan-deploy
+    runs-on: [self-hosted, linux, x64, tencent, gtr-release-config]
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.plan-deploy.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: python -m pip install -e .
+      - name: Run deployctl
+        shell: bash
+        run: |
+          extra_args=()
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.dry_run }}" == "true" ]]; then
+            extra_args+=(--dry-run)
+          fi
+          python tools/deployctl.py apply "${{ matrix.service }}" "${{ matrix.environment }}" "${extra_args[@]}"
