@@ -27,7 +27,7 @@ containers:
 - service_ref: corp-finance-monitor-backend
   container_name: corp-finance-monitor-backend
   image_repository: ghcr.io/lynskylate/corp-finance-monitor-backend
-  image_digest: sha256:bcf0f818d65a06fac6bfe3deefce9b4450ae54abb4abcad27bbcab9beda2b806
+  image_digest: sha256:c8f4829039cb0dcfb1f4f6444935ddb07193352be71ea3eb833185204860cd72
   env_profile: corp-finance-monitor-backend
   container_port: 8190
   network_aliases:
@@ -42,6 +42,7 @@ containers:
   - source: /srv/projects/corp-finance-monitor/data
     target: /app/data
     mode: rw
+  image_tag: cd32c775b0b03e9d3fd115546aeafa16b744e2ad
 - service_ref: corp-finance-monitor-frontend
   container_name: corp-finance-monitor-frontend
   image_repository: ghcr.io/lynskylate/corp-finance-monitor-frontend
@@ -56,9 +57,14 @@ containers:
   resource_limits:
     memory: 256m
     cpus: '0.5'
+  image_tag: cd32c775b0b03e9d3fd115546aeafa16b744e2ad
 rollback_history:
+- released_at: '2026-06-01T17:17:28.009448+00:00'
+  containers:
+    corp-finance-monitor-backend: sha256:bcf0f818d65a06fac6bfe3deefce9b4450ae54abb4abcad27bbcab9beda2b806
+    corp-finance-monitor-frontend: sha256:da4c9bbb86c0b9eec922451b5f377adc836cb8949be7967311afe50bd3c9b2f9
 - released_at: '2026-06-01T17:09:14.672846+00:00'
   containers:
     corp-finance-monitor-backend: sha256:331ab360add4c6780c1c4cb9712439f49dc1d8f1704c75f48bdf404721770f26
     corp-finance-monitor-frontend: sha256:d5a3f1d1943fda4e2ecd1aa5c9c0a6ae9184a9b54217280aabc340aaf975c7c3
-updated_at: '2026-06-01T17:09:14.672865+00:00'
+updated_at: '2026-06-01T17:17:28.009480+00:00'
