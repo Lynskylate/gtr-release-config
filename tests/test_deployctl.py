@@ -15,7 +15,7 @@ def write_yaml(path: Path, data: dict) -> None:
 
 
 class TestDeployCtl(unittest.TestCase):
-    def test_render_quadlet_includes_ports_and_volumes(self) -> None:
+    def test_render_service_unit_includes_ports_and_volumes(self) -> None:
         target = deployctl.TargetGroup(
             name="gtr-core",
             ssh_host="gtr.tail414c32.ts.net",
@@ -43,14 +43,15 @@ class TestDeployCtl(unittest.TestCase):
             "volumes": [{"source": "/srv/projects/cfm/data", "target": "/app/data", "mode": "rw"}],
         }
 
-        quadlet = deployctl.render_quadlet(stack, container, target)
+        unit = deployctl.render_service_unit(stack, container, target)
 
-        self.assertIn("PublishPort=127.0.0.1:8190:80", quadlet)
+        self.assertIn("--publish 127.0.0.1:8190:80", unit)
         self.assertIn(
-            "EnvironmentFile=/srv/project-secrets/svc-corp-finance-monitor/corp-finance-monitor-frontend.env",
-            quadlet,
+            "--env-file /srv/project-secrets/svc-corp-finance-monitor/corp-finance-monitor-frontend.env",
+            unit,
         )
-        self.assertIn("Volume=/srv/projects/cfm/data:/app/data:rw", quadlet)
+        self.assertIn("--volume /srv/projects/cfm/data:/app/data:rw", unit)
+        self.assertIn("ExecStart=/usr/bin/podman run", unit)
 
     def test_validate_repo_accepts_sample_stack(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -160,6 +161,7 @@ class TestDeployCtl(unittest.TestCase):
         self.assertIn('managed_file_paths = {item["path"] for item in managed_files}', script)
         self.assertIn('env_path = secret_root / f"{container[\'env_profile\']}.env"', script)
         self.assertIn('target_path.write_text(managed_file["content"], encoding="utf-8")', script)
+        self.assertIn('run_user(f"podman pull {container[\'image\']}")', script)
 
 
 if __name__ == "__main__":

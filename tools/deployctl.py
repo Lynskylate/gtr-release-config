@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import argparse
-import base64
 import copy
 import json
+import shlex
 import subprocess
 import sys
 import textwrap
@@ -174,7 +174,7 @@ def validate_repo(root: Path = ROOT) -> list[str]:
     return errors
 
 
-def render_quadlet(stack: dict[str, Any], container: dict[str, Any], target: TargetGroup) -> str:
+def render_service_unit(stack: dict[str, Any], container: dict[str, Any], target: TargetGroup) -> str:
     dependencies = container.get("depends_on", [])
     unit_lines = [
         "[Unit]",
@@ -186,62 +186,72 @@ def render_quadlet(stack: dict[str, Any], container: dict[str, Any], target: Tar
         unit_lines.append(f"After={dependency}.service")
         unit_lines.append(f"Requires={dependency}.service")
 
-    container_lines = [
-        "",
-        "[Container]",
-        f"Image={container['image_repository']}@{container['image_digest']}",
-        f"ContainerName={container['container_name']}",
-        f"Network={stack['runtime']['network']['name']}",
-        f"EnvironmentFile={target.secret_root}/{stack['service_user']}/{container['env_profile']}.env",
+    image = f"{container['image_repository']}@{container['image_digest']}"
+    podman_args: list[str] = [
+        "--name",
+        container["container_name"],
+        "--network",
+        stack["runtime"]["network"]["name"],
+        "--env-file",
+        f"{target.secret_root}/{stack['service_user']}/{container['env_profile']}.env",
     ]
     if "host_port" in container:
-        container_lines.append(
-            f"PublishPort=127.0.0.1:{container['host_port']}:{container['container_port']}"
+        podman_args.extend(
+            [
+                "--publish",
+                f"127.0.0.1:{container['host_port']}:{container['container_port']}",
+            ]
         )
     aliases = container.get("network_aliases", [])
-    podman_args: list[str] = []
     if aliases:
         podman_args.extend(f"--network-alias={alias}" for alias in aliases)
     limits = container.get("resource_limits", {})
     if limits.get("memory"):
-        container_lines.append(f"Memory={limits['memory']}")
+        podman_args.extend(["--memory", str(limits["memory"])])
     if limits.get("cpus"):
-        podman_args.append(f"--cpus={limits['cpus']}")
-    if podman_args:
-        container_lines.append(f"PodmanArgs={' '.join(podman_args)}")
+        podman_args.extend(["--cpus", str(limits["cpus"])])
     for volume in container.get("volumes", []):
-        container_lines.append(
-            f"Volume={volume['source']}:{volume['target']}:{volume.get('mode', 'rw')}"
+        podman_args.extend(
+            [
+                "--volume",
+                f"{volume['source']}:{volume['target']}:{volume.get('mode', 'rw')}",
+            ]
         )
+    quoted_args = " ".join(shlex.quote(arg) for arg in podman_args)
+    quoted_image = shlex.quote(image)
 
     service_lines = [
         "",
         "[Service]",
         "Restart=always",
         "TimeoutStartSec=120",
+        f"ExecStartPre=-/usr/bin/podman rm -f {container['container_name']}",
+        f"ExecStart=/usr/bin/podman run {quoted_args} {quoted_image}",
+        f"ExecStop=/usr/bin/podman stop -t 10 {container['container_name']}",
+        f"ExecStopPost=-/usr/bin/podman rm -f {container['container_name']}",
         "",
         "[Install]",
         "WantedBy=default.target",
         "",
     ]
-    return "\n".join(unit_lines + container_lines + service_lines)
+    return "\n".join(unit_lines + service_lines)
 
 
 def build_apply_script(stack: dict[str, Any], target: TargetGroup) -> str:
     service_user = stack["service_user"]
     service_root = f"{target.service_root}/{stack['service_name']}"
     home_dir = f"{service_root}/home"
-    quadlet_dir = f"{home_dir}/.config/containers/systemd"
+    unit_dir = f"{home_dir}/.config/systemd/user"
     container_payloads = []
     for container in stack["containers"]:
-        quadlet = render_quadlet(stack, container, target)
-        encoded = base64.b64encode(quadlet.encode("utf-8")).decode("ascii")
+        unit = render_service_unit(stack, container, target)
         container_payloads.append(
             {
-                "file_name": f"{container['service_ref']}.container",
+                "file_name": f"{container['service_ref']}.service",
                 "unit_name": f"{container['service_ref']}.service",
+                "image": f"{container['image_repository']}@{container['image_digest']}",
                 "env_profile": container["env_profile"],
-                "content": encoded,
+                "content": unit,
                 "volumes": container.get("volumes", []),
             }
         )
@@ -251,7 +261,7 @@ def build_apply_script(stack: dict[str, Any], target: TargetGroup) -> str:
         "service_user": service_user,
         "service_root": service_root,
         "home_dir": home_dir,
-        "quadlet_dir": quadlet_dir,
+        "unit_dir": unit_dir,
         "network_name": stack["runtime"]["network"]["name"],
         "secret_root": target.secret_root,
         "require_sudo": target.require_sudo,
@@ -272,7 +282,6 @@ def build_apply_script(stack: dict[str, Any], target: TargetGroup) -> str:
         """\
         set -euo pipefail
         python3 - <<'PY'
-        import base64
         import json
         import subprocess
         import time
@@ -282,7 +291,7 @@ def build_apply_script(stack: dict[str, Any], target: TargetGroup) -> str:
         service_user = payload["service_user"]
         service_root = Path(payload["service_root"])
         home_dir = Path(payload["home_dir"])
-        quadlet_dir = Path(payload["quadlet_dir"])
+        unit_dir = Path(payload["unit_dir"])
         network_name = payload["network_name"]
         secret_root = Path(payload["secret_root"]) / service_user
         managed_files = payload.get("managed_files", [])
@@ -292,7 +301,23 @@ def build_apply_script(stack: dict[str, Any], target: TargetGroup) -> str:
             subprocess.run(cmd, check=True, **kwargs)
 
         def run_user(command: str) -> None:
-            run(["runuser", "-u", service_user, "--", "bash", "-lc", command])
+            uid = subprocess.check_output(["id", "-u", service_user], text=True).strip()
+            runtime_dir = f"/run/user/{uid}"
+            bus_address = f"unix:path={runtime_dir}/bus"
+            run(
+                [
+                    "runuser",
+                    "-u",
+                    service_user,
+                    "--",
+                    "env",
+                    f"XDG_RUNTIME_DIR={runtime_dir}",
+                    f"DBUS_SESSION_BUS_ADDRESS={bus_address}",
+                    "bash",
+                    "-lc",
+                    command,
+                ]
+            )
 
         try:
             run(["id", service_user], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -309,7 +334,7 @@ def build_apply_script(stack: dict[str, Any], target: TargetGroup) -> str:
             ])
 
         run(["loginctl", "enable-linger", service_user])
-        run(["mkdir", "-p", str(service_root), str(secret_root), str(quadlet_dir)])
+        run(["mkdir", "-p", str(service_root), str(secret_root), str(unit_dir)])
         run(["chown", "-R", f"{service_user}:{service_user}", str(service_root), str(secret_root)])
 
         for managed_file in managed_files:
@@ -335,11 +360,13 @@ def build_apply_script(stack: dict[str, Any], target: TargetGroup) -> str:
                     run(["mkdir", "-p", str(volume_path.parent)])
                 else:
                     run(["mkdir", "-p", str(volume_path)])
-            target_path = quadlet_dir / container["file_name"]
-            target_path.write_bytes(base64.b64decode(container["content"]))
+            target_path = unit_dir / container["file_name"]
+            target_path.write_text(container["content"], encoding="utf-8")
             run(["chown", f"{service_user}:{service_user}", str(target_path)])
 
         run_user(f"podman network exists {{network_name}} || podman network create {{network_name}}".format(network_name=network_name))
+        for container in payload["containers"]:
+            run_user(f"podman pull {container['image']}")
         run_user("systemctl --user daemon-reload")
 
         for container in payload["containers"]:
