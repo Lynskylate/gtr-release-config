@@ -324,6 +324,20 @@ def download_stack_image_artifacts(stack: dict[str, Any], archive_dir: Path) -> 
             archive_path.unlink()
         shutil.move(str(candidates[0]), str(archive_path))
         shutil.rmtree(download_dir)
+        skopeo_path = shutil.which("skopeo")
+        if skopeo_path:
+            converted_path = archive_dir / f"{service_ref}.docker-archive.tar"
+            image_reference = container_image_reference(container)
+            run_local_command(
+                [
+                    skopeo_path,
+                    "copy",
+                    f"oci-archive:{archive_path}",
+                    f"docker-archive:{converted_path}:{image_reference}",
+                ]
+            )
+            archive_path.unlink()
+            converted_path.replace(archive_path)
         archives[service_ref] = archive_path
     return archives
 

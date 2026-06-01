@@ -266,17 +266,28 @@ class TestDeployCtl(unittest.TestCase):
                 {
                     "service_ref": "corp-finance-monitor-backend",
                     "image_artifact": "release-image-corp-finance-monitor-backend",
+                    "image_repository": "ghcr.io/lynskylate/corp-finance-monitor-backend",
+                    "image_tag": "release-sha",
                 }
             ],
         }
 
         def fake_run(cmd: list[str], **_: object) -> None:
-            download_dir = Path(cmd[cmd.index("--dir") + 1])
-            (download_dir / "corp-finance-monitor-backend.tar").write_text("archive", encoding="utf-8")
+            if cmd[0] == "gh":
+                download_dir = Path(cmd[cmd.index("--dir") + 1])
+                (download_dir / "corp-finance-monitor-backend.tar").write_text("archive", encoding="utf-8")
+                return
+            if cmd[0] == "/usr/bin/skopeo":
+                destination = cmd[-1].removeprefix("docker-archive:")
+                tar_index = destination.find(".tar")
+                converted = Path(destination[: tar_index + 4])
+                converted.write_text("converted-archive", encoding="utf-8")
+                return
+            raise AssertionError(cmd)
 
         with tempfile.TemporaryDirectory() as tmpdir, patch(
             "tools.deployctl.shutil.which",
-            side_effect=lambda candidate: "/usr/bin/gh" if candidate == "gh" else None,
+            side_effect=lambda candidate: f"/usr/bin/{candidate}" if candidate in {"gh", "skopeo"} else None,
         ), patch(
             "tools.deployctl.subprocess.run",
             side_effect=fake_run,
