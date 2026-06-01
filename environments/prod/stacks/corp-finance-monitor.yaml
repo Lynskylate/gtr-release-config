@@ -30,11 +30,9 @@ containers:
   image_digest: sha256:0a349a5e00ca69947a18b36261a86f728a98b2af8a875f1d4d732b74f583d4bd
   env_profile: corp-finance-monitor-backend
   container_port: 8190
+  ip_address: 10.89.0.10
   network_aliases:
   - backend
-  resource_limits:
-    memory: 768m
-    cpus: '1.0'
   volumes:
   - source: /srv/projects/corp-finance-monitor/config/config.yaml
     target: /app/config.yaml
@@ -53,11 +51,14 @@ containers:
   host_port: 8190
   depends_on:
   - corp-finance-monitor-backend
+  extra_hosts:
+  - backend:10.89.0.10
   network_aliases:
   - frontend
-  resource_limits:
-    memory: 256m
-    cpus: '0.5'
+  entrypoint: /bin/sh
+  command:
+  - -lc
+  - sed -i "s/^user  nginx;/user root;/" /etc/nginx/nginx.conf && exec nginx -g "daemon off;"
   image_tag: 9fb8a7a8baf41bc44dfc7754b114e238a5c90ffa
   image_artifact: release-image-corp-finance-monitor-frontend
 rollback_history:
