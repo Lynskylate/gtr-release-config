@@ -283,6 +283,7 @@ def build_apply_script(stack: dict[str, Any], target: TargetGroup) -> str:
         set -euo pipefail
         python3 - <<'PY'
         import json
+        import shlex
         import subprocess
         import time
         from pathlib import Path
@@ -300,6 +301,30 @@ def build_apply_script(stack: dict[str, Any], target: TargetGroup) -> str:
         def run(cmd: list[str], **kwargs) -> None:
             subprocess.run(cmd, check=True, **kwargs)
 
+        def ensure_subid(path: str, username: str) -> None:
+            subid_path = Path(path)
+            if not subid_path.exists():
+                subid_path.touch()
+            lines = subid_path.read_text(encoding="utf-8").splitlines()
+            for line in lines:
+                parts = line.split(":")
+                if len(parts) >= 3 and parts[0] == username:
+                    return
+            next_start = 100000
+            for line in lines:
+                parts = line.split(":")
+                if len(parts) < 3:
+                    continue
+                try:
+                    start = int(parts[1])
+                    count = int(parts[2])
+                except ValueError:
+                    continue
+                next_start = max(next_start, start + count)
+            aligned_start = ((next_start + 65535) // 65536) * 65536
+            with subid_path.open("a", encoding="utf-8") as handle:
+                handle.write(f"{username}:{aligned_start}:65536\\n")
+
         def run_user(command: str) -> None:
             uid = subprocess.check_output(["id", "-u", service_user], text=True).strip()
             runtime_dir = f"/run/user/{uid}"
@@ -311,12 +336,14 @@ def build_apply_script(stack: dict[str, Any], target: TargetGroup) -> str:
                     service_user,
                     "--",
                     "env",
+                    f"HOME={home_dir}",
                     f"XDG_RUNTIME_DIR={runtime_dir}",
                     f"DBUS_SESSION_BUS_ADDRESS={bus_address}",
                     "bash",
                     "-lc",
-                    command,
-                ]
+                    f"cd {shlex.quote(str(home_dir))} && {command}",
+                ],
+                cwd=str(home_dir),
             )
 
         try:
@@ -328,12 +355,17 @@ def build_apply_script(stack: dict[str, Any], target: TargetGroup) -> str:
                 "--create-home",
                 "--home-dir",
                 str(home_dir),
+                "--user-group",
                 "--shell",
                 "/usr/sbin/nologin",
                 service_user,
             ])
 
+        uid = subprocess.check_output(["id", "-u", service_user], text=True).strip()
+        ensure_subid("/etc/subuid", service_user)
+        ensure_subid("/etc/subgid", service_user)
         run(["loginctl", "enable-linger", service_user])
+        run(["systemctl", "start", f"user@{uid}.service"])
         run(["mkdir", "-p", str(service_root), str(secret_root), str(unit_dir)])
         run(["chown", "-R", f"{service_user}:{service_user}", str(service_root), str(secret_root)])
 
