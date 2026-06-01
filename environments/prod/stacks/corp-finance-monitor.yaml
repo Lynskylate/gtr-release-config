@@ -27,7 +27,7 @@ containers:
 - service_ref: corp-finance-monitor-backend
   container_name: corp-finance-monitor-backend
   image_repository: ghcr.io/lynskylate/corp-finance-monitor-backend
-  image_digest: sha256:c8f4829039cb0dcfb1f4f6444935ddb07193352be71ea3eb833185204860cd72
+  image_digest: sha256:cb129d0400097ab496ac2dcc48e29aa893d36aeabea90106e4192f4618258d9d
   env_profile: corp-finance-monitor-backend
   container_port: 8190
   network_aliases:
@@ -42,11 +42,12 @@ containers:
   - source: /srv/projects/corp-finance-monitor/data
     target: /app/data
     mode: rw
-  image_tag: 78e3dcce766654cbf6cdc65e01a70c379f31bbeb
+  image_tag: 2669d8a88932da122596fe5e836205db1748497c
+  image_artifact: release-image-corp-finance-monitor-backend
 - service_ref: corp-finance-monitor-frontend
   container_name: corp-finance-monitor-frontend
   image_repository: ghcr.io/lynskylate/corp-finance-monitor-frontend
-  image_digest: sha256:fb8e3b8a47cdd2ff9e152c9773730e493ab5c7951be4c05b391f2cab5d413e3e
+  image_digest: sha256:618e29e97ded64f8f51f0df739ac1b60368f1ca1daab353bf09bd21fe258ebe5
   env_profile: corp-finance-monitor-frontend
   container_port: 80
   host_port: 8190
@@ -57,8 +58,13 @@ containers:
   resource_limits:
     memory: 256m
     cpus: '0.5'
-  image_tag: 78e3dcce766654cbf6cdc65e01a70c379f31bbeb
+  image_tag: 2669d8a88932da122596fe5e836205db1748497c
+  image_artifact: release-image-corp-finance-monitor-frontend
 rollback_history:
+- released_at: '2026-06-01T17:48:09.159069+00:00'
+  containers:
+    corp-finance-monitor-backend: sha256:c8f4829039cb0dcfb1f4f6444935ddb07193352be71ea3eb833185204860cd72
+    corp-finance-monitor-frontend: sha256:fb8e3b8a47cdd2ff9e152c9773730e493ab5c7951be4c05b391f2cab5d413e3e
 - released_at: '2026-06-01T17:37:25.159682+00:00'
   containers:
     corp-finance-monitor-backend: sha256:c8f4829039cb0dcfb1f4f6444935ddb07193352be71ea3eb833185204860cd72
@@ -71,4 +77,6 @@ rollback_history:
   containers:
     corp-finance-monitor-backend: sha256:331ab360add4c6780c1c4cb9712439f49dc1d8f1704c75f48bdf404721770f26
     corp-finance-monitor-frontend: sha256:d5a3f1d1943fda4e2ecd1aa5c9c0a6ae9184a9b54217280aabc340aaf975c7c3
-updated_at: '2026-06-01T17:37:25.159705+00:00'
+updated_at: '2026-06-01T17:48:09.159092+00:00'
+artifact_source_repository: Lynskylate/corp-finance-monitor
+artifact_source_run_id: 26771775835
