@@ -73,6 +73,22 @@ jobs:
               --changed-file-list changed-stacks.txt \
               --github-output "$GITHUB_OUTPUT"
           fi
+      - name: Package deployment bundle
+        shell: bash
+        run: |
+          tar \
+            --exclude='.git' \
+            --exclude='.venv' \
+            --exclude='__pycache__' \
+            -czf deployment-bundle.tar.gz \
+            .
+      - name: Upload deployment bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-bundle
+          path: deployment-bundle.tar.gz
+          if-no-files-found: error
+          retention-days: 1
 
   deploy:
     if: needs.plan-deploy.outputs.has_changes == 'true'
@@ -82,7 +98,14 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(needs.plan-deploy.outputs.matrix) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: deployment-bundle
+      - name: Unpack deployment bundle
+        shell: bash
+        run: |
+          tar -xzf deployment-bundle.tar.gz
+          rm deployment-bundle.tar.gz
       - name: Verify runner Python runtime
         run: |
           python3 --version
