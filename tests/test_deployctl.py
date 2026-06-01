@@ -38,6 +38,7 @@ class TestDeployCtl(unittest.TestCase):
             "container_name": "corp-finance-monitor-frontend",
             "image_repository": "ghcr.io/lynskylate/corp-finance-monitor-frontend",
             "image_digest": "sha256:1234",
+            "image_tag": "abc123",
             "env_profile": "corp-finance-monitor-frontend",
             "container_port": 80,
             "host_port": 8190,
@@ -54,6 +55,7 @@ class TestDeployCtl(unittest.TestCase):
         )
         self.assertIn("--volume /srv/projects/cfm/data:/app/data:rw", unit)
         self.assertIn("ExecStart=/usr/bin/podman run", unit)
+        self.assertIn("ghcr.io/lynskylate/corp-finance-monitor-frontend:abc123", unit)
 
     def test_validate_repo_accepts_sample_stack(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -187,7 +187,10 @@ def render_service_unit(stack: dict[str, Any], container: dict[str, Any], target
         unit_lines.append(f"After={dependency}.service")
         unit_lines.append(f"Requires={dependency}.service")
 
-    image = f"{container['image_repository']}@{container['image_digest']}"
+    if container.get("image_tag"):
+        image = f"{container['image_repository']}:{container['image_tag']}"
+    else:
+        image = f"{container['image_repository']}@{container['image_digest']}"
     podman_args: list[str] = [
         "--name",
         container["container_name"],
