@@ -177,6 +177,21 @@ class TestDeployCtl(unittest.TestCase):
         self.assertIn('registry_auth = payload.get("registry_auth")', script)
         self.assertIn('"podman",', script)
         self.assertIn('"login",', script)
+        self.assertIn(
+            'ghcr.io/lynskylate/corp-finance-monitor-backend:release-sha',
+            deployctl.build_apply_script(
+                {
+                    **stack,
+                    "containers": [
+                        {
+                            **stack["containers"][0],
+                            "image_tag": "release-sha",
+                        }
+                    ],
+                },
+                target,
+            ),
+        )
         self.assertIn('run(["systemctl", "start", f"user@{uid}.service"])', script)
         self.assertIn('target_path.write_text(managed_file["content"], encoding="utf-8")', script)
         self.assertIn('run_user(f"podman pull {container[\'image\']}")', script)

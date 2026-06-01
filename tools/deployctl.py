@@ -187,10 +187,7 @@ def render_service_unit(stack: dict[str, Any], container: dict[str, Any], target
         unit_lines.append(f"After={dependency}.service")
         unit_lines.append(f"Requires={dependency}.service")
 
-    if container.get("image_tag"):
-        image = f"{container['image_repository']}:{container['image_tag']}"
-    else:
-        image = f"{container['image_repository']}@{container['image_digest']}"
+    image = container_image_reference(container)
     podman_args: list[str] = [
         "--name",
         container["container_name"],
@@ -241,6 +238,12 @@ def render_service_unit(stack: dict[str, Any], container: dict[str, Any], target
     return "\n".join(unit_lines + service_lines)
 
 
+def container_image_reference(container: dict[str, Any]) -> str:
+    if container.get("image_tag"):
+        return f"{container['image_repository']}:{container['image_tag']}"
+    return f"{container['image_repository']}@{container['image_digest']}"
+
+
 def build_apply_script(stack: dict[str, Any], target: TargetGroup) -> str:
     service_user = stack["service_user"]
     service_root = f"{target.service_root}/{stack['service_name']}"
@@ -253,7 +256,7 @@ def build_apply_script(stack: dict[str, Any], target: TargetGroup) -> str:
             {
                 "file_name": f"{container['service_ref']}.service",
                 "unit_name": f"{container['service_ref']}.service",
-                "image": f"{container['image_repository']}@{container['image_digest']}",
+                "image": container_image_reference(container),
                 "env_profile": container["env_profile"],
                 "content": unit,
                 "volumes": container.get("volumes", []),
