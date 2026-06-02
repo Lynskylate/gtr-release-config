@@ -15,24 +15,24 @@ healthcheck:
 managed_files:
 - path: /srv/projects/corp-finance-monitor/config/config.yaml
   mode: '0644'
-  content: "engine:\n  run_once: true\n  interval_minutes: 360\n  concurrency:\
-    \ 1\n  fetch_delay_seconds: 0.5\nstorage:\n  backend: disk\n  base_dir: ./data\n\
-    state_store:\n  backend: sqlite\n  path: ./data/.cfm_state/state.db\napi:\n \
-    \ enabled: true\n  host: 127.0.0.1\n  port: 8190\nscheduling:\n  tiers:\n   \
-    \ - name: core\n      stocks: [\"000725\", \"600519\", \"000858\"]\n      interval_minutes:\
-    \ 60\n    - name: full\n      interval_minutes: 720\n      use_registry: true\n\
-    \  disclosure_windows:\n    - months: [1, 2, 3, 4]\n      multiplier: 0.5\n  \
-    \  - months: [7, 8]\n      multiplier: 0.5\nsources:\n  cninfo:\n    options:\n\
-    \      full_market: false\n      full_market_batch_size: 50\n    watchlist:\n\
-    \      - stock: \"000725\"\n        org_id: \"gssz0000725\"\n        kinds: [annual,\
-    \ semi, q1, q3]\n  sse:\n    watchlist: []\n  hkex:\n    watchlist:\n      - stock:\
-    \ \"00700\"\n        kinds: [annual, interim]\n      - stock: \"09988\"\n     \
-    \   kinds: [annual, interim]\n"
+  content: "engine:\n  run_once: true\n  interval_minutes: 360\n  concurrency: 1\n\
+    \  fetch_delay_seconds: 0.5\nstorage:\n  backend: disk\n  base_dir: ./data\nstate_store:\n\
+    \  backend: sqlite\n  path: ./data/.cfm_state/state.db\napi:\n  enabled: true\n\
+    \  host: 127.0.0.1\n  port: 8190\nscheduling:\n  tiers:\n    - name: core\n  \
+    \    stocks: [\"000725\", \"600519\", \"000858\"]\n      interval_minutes: 60\n\
+    \    - name: full\n      interval_minutes: 720\n      use_registry: true\n  disclosure_windows:\n\
+    \    - months: [1, 2, 3, 4]\n      multiplier: 0.5\n    - months: [7, 8]\n   \
+    \   multiplier: 0.5\nsources:\n  cninfo:\n    options:\n      full_market: false\n\
+    \      full_market_batch_size: 50\n    watchlist:\n      - stock: \"000725\"\n\
+    \        org_id: \"gssz0000725\"\n        kinds: [annual, semi, q1, q3]\n  sse:\n\
+    \    watchlist: []\n  hkex:\n    watchlist:\n      - stock: \"00700\"\n      \
+    \  kinds: [annual, interim]\n      - stock: \"09988\"\n        kinds: [annual,\
+    \ interim]\n"
 containers:
 - service_ref: corp-finance-monitor-backend
   container_name: corp-finance-monitor-backend
   image_repository: ghcr.io/lynskylate/corp-finance-monitor-backend
-  image_digest: sha256:bb0e2f494d38e3dc63b7e0d58e698a1c333691b054351f19fe8a3db7a7b00fda
+  image_digest: sha256:0df15affaabca8b194660da9238825aa3a5bdb86bd29f84c71e71ae15b881500
   env_profile: corp-finance-monitor-backend
   container_port: 8190
   ip_address: 10.89.0.10
@@ -45,7 +45,7 @@ containers:
   - source: /srv/projects/corp-finance-monitor/data
     target: /app/data
     mode: rw
-  image_tag: 452d7b3af68106cd22b7ccb4b09a272459331724
+  image_tag: 2fa6b8a22725c6737658b1d62214b462468f0f7c
   image_artifact: release-image-corp-finance-monitor-backend
 - service_ref: corp-finance-monitor-frontend
   container_name: corp-finance-monitor-frontend
@@ -65,9 +65,13 @@ containers:
   - -lc
   - sed -i "s/^user  nginx;/user root;/" /etc/nginx/nginx.conf && exec nginx -g "daemon
     off;"
-  image_tag: 452d7b3af68106cd22b7ccb4b09a272459331724
+  image_tag: 2fa6b8a22725c6737658b1d62214b462468f0f7c
   image_artifact: release-image-corp-finance-monitor-frontend
 rollback_history:
+- released_at: '2026-06-02T16:21:40.680709+00:00'
+  containers:
+    corp-finance-monitor-backend: sha256:bb0e2f494d38e3dc63b7e0d58e698a1c333691b054351f19fe8a3db7a7b00fda
+    corp-finance-monitor-frontend: sha256:e90bf961f6502ca754283ba6a92200b203277965cd5ac4e2f6d70071020f1301
 - released_at: '2026-06-02T14:36:11.971144+00:00'
   containers:
     corp-finance-monitor-backend: sha256:e619633d44900829211fd28cbe5cb8531a347b341cd37e3c7dbe14cdbf6e6dc7
@@ -108,6 +112,6 @@ rollback_history:
   containers:
     corp-finance-monitor-backend: sha256:331ab360add4c6780c1c4cb9712439f49dc1d8f1704c75f48bdf404721770f26
     corp-finance-monitor-frontend: sha256:d5a3f1d1943fda4e2ecd1aa5c9c0a6ae9184a9b54217280aabc340aaf975c7c3
-updated_at: '2026-06-02T14:36:11.971169+00:00'
+updated_at: '2026-06-02T16:21:40.680728+00:00'
 artifact_source_repository: Lynskylate/corp-finance-monitor
-artifact_source_run_id: 26826804137
+artifact_source_run_id: 26831292436
