@@ -46,7 +46,6 @@ containers:
     target: /app/data
     mode: rw
   image_tag: 0740d1c4d74ac425e735ab4d3c46a714b412a9b9
-  image_artifact: release-image-corp-finance-monitor-backend
 - service_ref: corp-finance-monitor-frontend
   container_name: corp-finance-monitor-frontend
   image_repository: ccr.ccs.tencentyun.com/fin-monitor/corp-finance-monitor-frontend
@@ -66,7 +65,6 @@ containers:
   - sed -i "s/^user  nginx;/user root;/" /etc/nginx/nginx.conf && exec nginx -g "daemon
     off;"
   image_tag: 0740d1c4d74ac425e735ab4d3c46a714b412a9b9
-  image_artifact: release-image-corp-finance-monitor-frontend
 rollback_history:
 - released_at: '2026-06-02T16:28:05.222456+00:00'
   containers:
@@ -117,5 +115,3 @@ rollback_history:
     corp-finance-monitor-backend: sha256:331ab360add4c6780c1c4cb9712439f49dc1d8f1704c75f48bdf404721770f26
     corp-finance-monitor-frontend: sha256:d5a3f1d1943fda4e2ecd1aa5c9c0a6ae9184a9b54217280aabc340aaf975c7c3
 updated_at: '2026-06-02T16:28:05.222479+00:00'
-artifact_source_repository: Lynskylate/corp-finance-monitor
-artifact_source_run_id: 26833362860
