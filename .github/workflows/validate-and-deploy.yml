@@ -19,6 +19,9 @@ on:
         required: false
         default: "true"
 
+env:
+  GTR_TAILSCALE_IP: "100.121.0.67"
+
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -113,9 +116,9 @@ jobs:
           sudo apt-get install -y skopeo
       - name: Stage deployment images
         env:
-          GH_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
-          DEPLOYCTL_GHCR_USERNAME: ${{ github.repository_owner }}
-          DEPLOYCTL_GHCR_TOKEN: ${{ secrets.GHCR_READ_TOKEN != '' && secrets.GHCR_READ_TOKEN || github.token }}
+          DEPLOYCTL_REGISTRY: ccr.ccs.tencentyun.com
+          DEPLOYCTL_REGISTRY_USERNAME: ${{ secrets.TCR_USERNAME }}
+          DEPLOYCTL_REGISTRY_TOKEN: ${{ secrets.TCR_PASSWORD }}
         shell: bash
         run: |
           archive_dir="$RUNNER_TEMP/image-archives/${{ matrix.environment }}-${{ matrix.service }}"
@@ -132,11 +135,64 @@ jobs:
   deploy:
     if: needs.plan-deploy.outputs.has_changes == 'true'
     needs: [plan-deploy, stage-images]
-    runs-on: [self-hosted, linux, x64, tencent, gtr-release-config]
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.plan-deploy.outputs.matrix) }}
     steps:
+      - name: Connect Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: Diagnose Tailscale status
+        run: |
+          echo "=== Tailscale status ==="
+          tailscale status
+          echo ""
+          echo "=== Self info ==="
+          tailscale status --json | python3 -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          s = d.get('Self', {})
+          print('HostName:', s.get('HostName'))
+          print('IPs:', s.get('TailscaleIPs'))
+          print('Tags:', s.get('Tags'))
+          print('Online:', s.get('Online'))
+          # Find GTR in peers
+          for nid, p in d.get('Peer', {}).items():
+              if 'gtr' in p.get('HostName', '').lower():
+                  print()
+                  print('=== GTR peer ===')
+                  print('HostName:', p.get('HostName'))
+                  print('IPs:', p.get('TailscaleIPs'))
+                  print('Tags:', p.get('Tags'))
+                  print('Online:', p.get('Online'))
+                  print('Active:', p.get('Active'))
+          "
+
+      - name: Setup SSH
+        run: |
+          echo "${{ env.GTR_TAILSCALE_IP }} gtr gtr.tail414c32.ts.net" | sudo tee -a /etc/hosts
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          cat >> ~/.ssh/config <<'SSHCFG'
+          Host *
+            IdentityFile ~/.ssh/deploy_key
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+          SSHCFG
+
+      - name: Test SSH connectivity to GTR
+        run: |
+          echo "=== Ping GTR ==="
+          ping -c 2 -W 5 ${{ env.GTR_TAILSCALE_IP }} || echo "Ping failed (non-fatal)"
+          echo "=== SSH to GTR ==="
+          ssh -o ConnectTimeout=10 root@gtr.tail414c32.ts.net "hostname && uptime"
+
       - uses: actions/download-artifact@v4
         with:
           name: deployment-bundle
@@ -149,14 +205,20 @@ jobs:
         with:
           name: image-archives-${{ matrix.environment }}-${{ matrix.service }}
           path: image-archives
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: python -m pip install -e .
       - name: Verify runner Python runtime
         run: |
           python3 --version
           python3 -c "import yaml; print(yaml.__version__)"
       - name: Run deployctl
         env:
-          DEPLOYCTL_GHCR_USERNAME: ${{ github.repository_owner }}
-          DEPLOYCTL_GHCR_TOKEN: ${{ secrets.GHCR_READ_TOKEN != '' && secrets.GHCR_READ_TOKEN || github.token }}
+          DEPLOYCTL_REGISTRY: ccr.ccs.tencentyun.com
+          DEPLOYCTL_REGISTRY_USERNAME: ${{ secrets.TCR_USERNAME }}
+          DEPLOYCTL_REGISTRY_TOKEN: ${{ secrets.TCR_PASSWORD }}
         shell: bash
         run: |
           extra_args=()

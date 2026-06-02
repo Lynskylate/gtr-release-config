@@ -278,15 +278,16 @@ def run_local_command(cmd: list[str], input_text: str | None = None) -> None:
 
 
 def login_local_registry(tool: str) -> None:
-    registry_username = os.environ.get("DEPLOYCTL_GHCR_USERNAME")
-    registry_token = os.environ.get("DEPLOYCTL_GHCR_TOKEN")
+    registry = os.environ.get("DEPLOYCTL_REGISTRY", "ghcr.io")
+    registry_username = os.environ.get("DEPLOYCTL_REGISTRY_USERNAME")
+    registry_token = os.environ.get("DEPLOYCTL_REGISTRY_TOKEN")
     if not (registry_username and registry_token):
         return
     run_local_command(
         [
             tool,
             "login",
-            "ghcr.io",
+            registry,
             "--username",
             registry_username,
             "--password-stdin",
@@ -435,11 +436,12 @@ def build_apply_script(
             ),
         },
     }
-    registry_username = os.environ.get("DEPLOYCTL_GHCR_USERNAME")
-    registry_token = os.environ.get("DEPLOYCTL_GHCR_TOKEN")
+    registry = os.environ.get("DEPLOYCTL_REGISTRY", "ghcr.io")
+    registry_username = os.environ.get("DEPLOYCTL_REGISTRY_USERNAME")
+    registry_token = os.environ.get("DEPLOYCTL_REGISTRY_TOKEN")
     if registry_username and registry_token:
         data["registry_auth"] = {
-            "registry": "ghcr.io",
+            "registry": registry,
             "username": registry_username,
             "password": registry_token,
         }

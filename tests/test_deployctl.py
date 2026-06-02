@@ -36,7 +36,7 @@ class TestDeployCtl(unittest.TestCase):
         container = {
             "service_ref": "corp-finance-monitor-frontend",
             "container_name": "corp-finance-monitor-frontend",
-            "image_repository": "ghcr.io/lynskylate/corp-finance-monitor-frontend",
+            "image_repository": "ccr.ccs.tencentyun.com/fin-monitor/corp-finance-monitor-frontend",
             "image_digest": "sha256:1234",
             "image_tag": "abc123",
             "env_profile": "corp-finance-monitor-frontend",
@@ -63,7 +63,7 @@ class TestDeployCtl(unittest.TestCase):
         self.assertIn("--volume /srv/projects/cfm/data:/app/data:rw", unit)
         self.assertIn("ExecStart=/usr/bin/podman run", unit)
         self.assertIn(" -lc 'echo test'", unit)
-        self.assertIn("ghcr.io/lynskylate/corp-finance-monitor-frontend:abc123", unit)
+        self.assertIn("ccr.ccs.tencentyun.com/fin-monitor/corp-finance-monitor-frontend:abc123", unit)
 
     def test_validate_repo_accepts_sample_stack(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -99,7 +99,7 @@ class TestDeployCtl(unittest.TestCase):
                         {
                             "service_ref": "corp-finance-monitor-frontend",
                             "container_name": "corp-finance-monitor-frontend",
-                            "image_repository": "ghcr.io/lynskylate/corp-finance-monitor-frontend",
+                            "image_repository": "ccr.ccs.tencentyun.com/fin-monitor/corp-finance-monitor-frontend",
                             "image_digest": "sha256:1234",
                             "env_profile": "corp-finance-monitor-frontend",
                             "container_port": 80,
@@ -146,7 +146,7 @@ class TestDeployCtl(unittest.TestCase):
                 {
                     "service_ref": "corp-finance-monitor-backend",
                     "container_name": "corp-finance-monitor-backend",
-                    "image_repository": "ghcr.io/lynskylate/corp-finance-monitor-backend",
+                    "image_repository": "ccr.ccs.tencentyun.com/fin-monitor/corp-finance-monitor-backend",
                     "image_digest": "sha256:1234",
                     "env_profile": "corp-finance-monitor-backend",
                     "container_port": 8190,
@@ -171,8 +171,9 @@ class TestDeployCtl(unittest.TestCase):
         with patch.dict(
             os.environ,
             {
-                "DEPLOYCTL_GHCR_USERNAME": "Lynskylate",
-                "DEPLOYCTL_GHCR_TOKEN": "token-value",
+                "DEPLOYCTL_REGISTRY": "ccr.ccs.tencentyun.com",
+                "DEPLOYCTL_REGISTRY_USERNAME": "tcuser",
+                "DEPLOYCTL_REGISTRY_TOKEN": "token-value",
             },
             clear=False,
         ):
@@ -197,7 +198,7 @@ class TestDeployCtl(unittest.TestCase):
         self.assertIn('"containers-storage:{container[\'image\']}"', script)
         self.assertIn('run_user_args(["podman", "load", "-i", image_archive_path])', script)
         self.assertIn(
-            'ghcr.io/lynskylate/corp-finance-monitor-backend:release-sha',
+            'ccr.ccs.tencentyun.com/fin-monitor/corp-finance-monitor-backend:release-sha',
             deployctl.build_apply_script(
                 {
                     **stack,
@@ -225,7 +226,7 @@ class TestDeployCtl(unittest.TestCase):
             "containers": [
                 {
                     "service_ref": "corp-finance-monitor-backend",
-                    "image_repository": "ghcr.io/lynskylate/corp-finance-monitor-backend",
+                    "image_repository": "ccr.ccs.tencentyun.com/fin-monitor/corp-finance-monitor-backend",
                     "image_digest": "sha256:1234",
                     "image_tag": "release-sha",
                 }
@@ -248,8 +249,9 @@ class TestDeployCtl(unittest.TestCase):
         ), patch.dict(
             os.environ,
             {
-                "DEPLOYCTL_GHCR_USERNAME": "Lynskylate",
-                "DEPLOYCTL_GHCR_TOKEN": "token-value",
+                "DEPLOYCTL_REGISTRY": "ccr.ccs.tencentyun.com",
+                "DEPLOYCTL_REGISTRY_USERNAME": "tcuser",
+                "DEPLOYCTL_REGISTRY_TOKEN": "token-value",
             },
             clear=False,
         ):
@@ -259,11 +261,11 @@ class TestDeployCtl(unittest.TestCase):
         self.assertEqual(archives["corp-finance-monitor-backend"], archive_path)
         self.assertEqual(
             commands[0],
-            ["docker", "login", "ghcr.io", "--username", "Lynskylate", "--password-stdin"],
+            ["docker", "login", "ccr.ccs.tencentyun.com", "--username", "tcuser", "--password-stdin"],
         )
         self.assertEqual(
             commands[1],
-            ["docker", "pull", "ghcr.io/lynskylate/corp-finance-monitor-backend:release-sha"],
+            ["docker", "pull", "ccr.ccs.tencentyun.com/fin-monitor/corp-finance-monitor-backend:release-sha"],
         )
         self.assertEqual(
             commands[2],
@@ -272,7 +274,7 @@ class TestDeployCtl(unittest.TestCase):
                 "save",
                 "-o",
                 str(archive_path),
-                "ghcr.io/lynskylate/corp-finance-monitor-backend:release-sha",
+                "ccr.ccs.tencentyun.com/fin-monitor/corp-finance-monitor-backend:release-sha",
             ],
         )
 
@@ -284,7 +286,7 @@ class TestDeployCtl(unittest.TestCase):
                 {
                     "service_ref": "corp-finance-monitor-backend",
                     "image_artifact": "release-image-corp-finance-monitor-backend",
-                    "image_repository": "ghcr.io/lynskylate/corp-finance-monitor-backend",
+                    "image_repository": "ccr.ccs.tencentyun.com/fin-monitor/corp-finance-monitor-backend",
                     "image_tag": "release-sha",
                 }
             ],
@@ -326,7 +328,7 @@ class TestDeployCtl(unittest.TestCase):
                 {
                     "service_ref": "corp-finance-monitor-backend",
                     "container_name": "corp-finance-monitor-backend",
-                    "image_repository": "ghcr.io/lynskylate/corp-finance-monitor-backend",
+                    "image_repository": "ccr.ccs.tencentyun.com/fin-monitor/corp-finance-monitor-backend",
                     "image_digest": "sha256:1234",
                     "env_profile": "corp-finance-monitor-backend",
                     "container_port": 8190,

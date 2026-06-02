@@ -31,7 +31,7 @@ managed_files:
 containers:
 - service_ref: corp-finance-monitor-backend
   container_name: corp-finance-monitor-backend
-  image_repository: ghcr.io/lynskylate/corp-finance-monitor-backend
+  image_repository: ccr.ccs.tencentyun.com/fin-monitor/corp-finance-monitor-backend
   image_digest: sha256:0df15affaabca8b194660da9238825aa3a5bdb86bd29f84c71e71ae15b881500
   env_profile: corp-finance-monitor-backend
   container_port: 8190
@@ -49,7 +49,7 @@ containers:
   image_artifact: release-image-corp-finance-monitor-backend
 - service_ref: corp-finance-monitor-frontend
   container_name: corp-finance-monitor-frontend
-  image_repository: ghcr.io/lynskylate/corp-finance-monitor-frontend
+  image_repository: ccr.ccs.tencentyun.com/fin-monitor/corp-finance-monitor-frontend
   image_digest: sha256:e90bf961f6502ca754283ba6a92200b203277965cd5ac4e2f6d70071020f1301
   env_profile: corp-finance-monitor-frontend
   container_port: 80
