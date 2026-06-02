@@ -611,7 +611,7 @@ def build_apply_script(
 
         run_user(f"podman network exists {{network_name}} || podman network create {{network_name}}".format(network_name=network_name))
         normalize_cni_network_config(network_name)
-        if registry_auth and any(not container.get("image_archive_path") for container in payload["containers"]):
+        if registry_auth:
             run_user_args(
                 [
                     "podman",

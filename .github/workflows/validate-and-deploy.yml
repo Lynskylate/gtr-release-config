@@ -96,46 +96,9 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  stage-images:
-    if: needs.plan-deploy.outputs.has_changes == 'true'
-    needs: plan-deploy
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJson(needs.plan-deploy.outputs.matrix) }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Install dependencies
-        run: python -m pip install -e .
-      - name: Install image conversion tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y skopeo
-      - name: Stage deployment images
-        env:
-          GH_TOKEN: ${{ github.token }}
-          DEPLOYCTL_REGISTRY: ccr.ccs.tencentyun.com
-          DEPLOYCTL_REGISTRY_USERNAME: ${{ secrets.TCR_USERNAME }}
-          DEPLOYCTL_REGISTRY_TOKEN: ${{ secrets.TCR_PASSWORD }}
-        shell: bash
-        run: |
-          archive_dir="$RUNNER_TEMP/image-archives/${{ matrix.environment }}-${{ matrix.service }}"
-          mkdir -p "$archive_dir"
-          python tools/deployctl.py stage-images "${{ matrix.service }}" "${{ matrix.environment }}" --archive-dir "$archive_dir"
-      - name: Upload image archives
-        uses: actions/upload-artifact@v4
-        with:
-          name: image-archives-${{ matrix.environment }}-${{ matrix.service }}
-          path: ${{ runner.temp }}/image-archives/${{ matrix.environment }}-${{ matrix.service }}
-          if-no-files-found: error
-          retention-days: 1
-
   deploy:
     if: needs.plan-deploy.outputs.has_changes == 'true'
-    needs: [plan-deploy, stage-images]
+    needs: plan-deploy
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -202,10 +165,6 @@ jobs:
         run: |
           tar -xzf deployment-bundle.tar.gz
           rm deployment-bundle.tar.gz
-      - uses: actions/download-artifact@v4
-        with:
-          name: image-archives-${{ matrix.environment }}-${{ matrix.service }}
-          path: image-archives
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -226,5 +185,4 @@ jobs:
           if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.dry_run }}" == "true" ]]; then
             extra_args+=(--dry-run)
           fi
-          extra_args+=(--image-archive-dir "$PWD/image-archives")
           PYTHONPATH=. python3 tools/deployctl.py apply "${{ matrix.service }}" "${{ matrix.environment }}" "${extra_args[@]}"
