@@ -211,7 +211,7 @@ class TestDeployCtl(unittest.TestCase):
         self.assertIn('service_units = [container["unit_name"] for container in payload["containers"]]', script)
         self.assertIn('build_user_command(["systemctl", "--user", "is-active", *service_units])', script)
         self.assertIn('target_path.write_text(managed_file["content"], encoding="utf-8")', script)
-        self.assertIn('run_user(f"podman pull {container[\'image\']}")', script)
+        self.assertIn('pull_with_retry(container["image"])', script)
 
     def test_command_apply_builds_script_and_runs_ssh(self) -> None:
         stack = {
@@ -263,7 +263,7 @@ class TestDeployCtl(unittest.TestCase):
         self.assertEqual(result, 0)
         ssh_mock.assert_called_once()
         script = ssh_mock.call_args.args[1]
-        self.assertIn('run_user(f"podman pull {container[\'image\']}")', script)
+        self.assertIn('pull_with_retry(container["image"])', script)
 
 
 if __name__ == "__main__":
