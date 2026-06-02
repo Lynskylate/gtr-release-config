@@ -116,6 +116,7 @@ jobs:
           sudo apt-get install -y skopeo
       - name: Stage deployment images
         env:
+          GH_TOKEN: ${{ github.token }}
           DEPLOYCTL_REGISTRY: ccr.ccs.tencentyun.com
           DEPLOYCTL_REGISTRY_USERNAME: ${{ secrets.TCR_USERNAME }}
           DEPLOYCTL_REGISTRY_TOKEN: ${{ secrets.TCR_PASSWORD }}
