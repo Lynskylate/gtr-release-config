@@ -15,14 +15,19 @@ healthcheck:
 managed_files:
 - path: /srv/projects/corp-finance-monitor/config/config.yaml
   mode: '0644'
-  content: "engine:\n  run_once: true\n  interval_minutes: 360\n  fetch_delay_seconds:\
-    \ 0.5\nstorage:\n  backend: disk\n  base_dir: ./data\nstate_store:\n  backend:\
-    \ sqlite\n  path: ./data/.cfm_state/state.db\napi:\n  enabled: true\n  host: 127.0.0.1\n\
-    \  port: 8190\nsources:\n  cninfo:\n    watchlist:\n      - stock: \"000725\"\n\
-    \        org_id: \"gssz0000725\"\n        kinds: [annual, semi, q1, q3]\n  sse:\n\
-    \    watchlist: []\n  hkex:\n    watchlist:\n      - stock: \"00700\"\n      \
-    \  kinds: [annual, interim]\n      - stock: \"09988\"\n        kinds: [annual,\
-    \ interim]\n"
+  content: "engine:\n  run_once: true\n  interval_minutes: 360\n  concurrency:\
+    \ 1\n  fetch_delay_seconds: 0.5\nstorage:\n  backend: disk\n  base_dir: ./data\n\
+    state_store:\n  backend: sqlite\n  path: ./data/.cfm_state/state.db\napi:\n \
+    \ enabled: true\n  host: 127.0.0.1\n  port: 8190\nscheduling:\n  tiers:\n   \
+    \ - name: core\n      stocks: [\"000725\", \"600519\", \"000858\"]\n      interval_minutes:\
+    \ 60\n    - name: full\n      interval_minutes: 720\n      use_registry: true\n\
+    \  disclosure_windows:\n    - months: [1, 2, 3, 4]\n      multiplier: 0.5\n  \
+    \  - months: [7, 8]\n      multiplier: 0.5\nsources:\n  cninfo:\n    options:\n\
+    \      full_market: false\n      full_market_batch_size: 50\n    watchlist:\n\
+    \      - stock: \"000725\"\n        org_id: \"gssz0000725\"\n        kinds: [annual,\
+    \ semi, q1, q3]\n  sse:\n    watchlist: []\n  hkex:\n    watchlist:\n      - stock:\
+    \ \"00700\"\n        kinds: [annual, interim]\n      - stock: \"09988\"\n     \
+    \   kinds: [annual, interim]\n"
 containers:
 - service_ref: corp-finance-monitor-backend
   container_name: corp-finance-monitor-backend
