@@ -395,6 +395,20 @@ def build_apply_script(
                 ]
             )
 
+        def pull_with_retry(image: str, max_retries: int = 3, base_wait: int = 10) -> None:
+            for attempt in range(1, max_retries + 1):
+                try:
+                    run_user(f"echo 'Trying to pull {image}...' && podman pull {image}")
+                    return
+                except subprocess.CalledProcessError:
+                    if attempt < max_retries:
+                        wait = attempt * base_wait
+                        print(f"Pull failed (attempt {attempt}/{max_retries}), retrying in {wait}s...")
+                        time.sleep(wait)
+                    else:
+                        print(f"Pull failed after {max_retries} attempts: {image}")
+                        raise
+
         def normalize_cni_network_config(network_name: str) -> None:
             cni_dir = home_dir / ".config" / "cni" / "net.d"
             for suffix in (".conflist", ".conf", ".json"):
@@ -486,7 +500,7 @@ def build_apply_script(
                 input_text=registry_auth["password"],
             )
         for container in payload["containers"]:
-            run_user(f"podman pull {container['image']}")
+            pull_with_retry(container["image"])
         run_user("systemctl --user daemon-reload")
 
         for container in payload["containers"]:
