@@ -27,7 +27,7 @@ containers:
 - service_ref: corp-finance-monitor-backend
   container_name: corp-finance-monitor-backend
   image_repository: ghcr.io/lynskylate/corp-finance-monitor-backend
-  image_digest: sha256:19701ebc5b75889669ae117002e59ecf55aa26212aef48e678cab3cdea55f3c7
+  image_digest: sha256:e619633d44900829211fd28cbe5cb8531a347b341cd37e3c7dbe14cdbf6e6dc7
   env_profile: corp-finance-monitor-backend
   container_port: 8190
   ip_address: 10.89.0.10
@@ -40,7 +40,7 @@ containers:
   - source: /srv/projects/corp-finance-monitor/data
     target: /app/data
     mode: rw
-  image_tag: b6049aaba648e1a50648829369fea8d5f41987a5
+  image_tag: a27737741b4b5191e879a2367b637f4d9ce5e5c6
   image_artifact: release-image-corp-finance-monitor-backend
 - service_ref: corp-finance-monitor-frontend
   container_name: corp-finance-monitor-frontend
@@ -60,9 +60,13 @@ containers:
   - -lc
   - sed -i "s/^user  nginx;/user root;/" /etc/nginx/nginx.conf && exec nginx -g "daemon
     off;"
-  image_tag: b6049aaba648e1a50648829369fea8d5f41987a5
+  image_tag: a27737741b4b5191e879a2367b637f4d9ce5e5c6
   image_artifact: release-image-corp-finance-monitor-frontend
 rollback_history:
+- released_at: '2026-06-02T14:15:24.006838+00:00'
+  containers:
+    corp-finance-monitor-backend: sha256:19701ebc5b75889669ae117002e59ecf55aa26212aef48e678cab3cdea55f3c7
+    corp-finance-monitor-frontend: sha256:e10d141071704b37bcf5ea7dda90e2a1da2d619dc3d9fea99a9111271d0f7e30
 - released_at: '2026-06-02T13:50:43.880764+00:00'
   containers:
     corp-finance-monitor-backend: sha256:cb8ae9c28d7c1c904e3e9bbd3f421adade46e9f887e6de6ef0d7eca6c84f4d26
@@ -95,6 +99,6 @@ rollback_history:
   containers:
     corp-finance-monitor-backend: sha256:331ab360add4c6780c1c4cb9712439f49dc1d8f1704c75f48bdf404721770f26
     corp-finance-monitor-frontend: sha256:d5a3f1d1943fda4e2ecd1aa5c9c0a6ae9184a9b54217280aabc340aaf975c7c3
-updated_at: '2026-06-02T13:50:43.880780+00:00'
+updated_at: '2026-06-02T14:15:24.006867+00:00'
 artifact_source_repository: Lynskylate/corp-finance-monitor
-artifact_source_run_id: 26824090796
+artifact_source_run_id: 26825552426
