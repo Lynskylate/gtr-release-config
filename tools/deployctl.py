@@ -5,11 +5,9 @@ import copy
 import json
 import os
 import shlex
-import shutil
 import subprocess
 import sys
 import textwrap
-import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -261,140 +259,9 @@ def container_image_reference(container: dict[str, Any]) -> str:
     return f"{container['image_repository']}@{container['image_digest']}"
 
 
-def find_local_image_tool() -> str:
-    for candidate in ("docker", "podman"):
-        if shutil.which(candidate):
-            return candidate
-    raise RuntimeError("No supported local container tool found; expected docker or podman")
-
-
-def run_local_command(cmd: list[str], input_text: str | None = None) -> None:
-    subprocess.run(
-        cmd,
-        input=input_text,
-        text=True,
-        check=True,
-    )
-
-
-def login_local_registry(tool: str) -> None:
-    registry = os.environ.get("DEPLOYCTL_REGISTRY", "ghcr.io")
-    registry_username = os.environ.get("DEPLOYCTL_REGISTRY_USERNAME")
-    registry_token = os.environ.get("DEPLOYCTL_REGISTRY_TOKEN")
-    if not (registry_username and registry_token):
-        return
-    run_local_command(
-        [
-            tool,
-            "login",
-            registry,
-            "--username",
-            registry_username,
-            "--password-stdin",
-        ],
-        input_text=registry_token,
-    )
-
-
-def stack_uses_release_artifacts(stack: dict[str, Any]) -> bool:
-    if not stack.get("artifact_source_repository") or not stack.get("artifact_source_run_id"):
-        return False
-    return all(container.get("image_artifact") for container in stack["containers"])
-
-
-def download_stack_image_artifacts(stack: dict[str, Any], archive_dir: Path) -> dict[str, Path]:
-    if not shutil.which("gh"):
-        raise RuntimeError("GitHub CLI is required to download release image artifacts")
-    archive_dir.mkdir(parents=True, exist_ok=True)
-    source_repository = str(stack["artifact_source_repository"])
-    source_run_id = str(stack["artifact_source_run_id"])
-    archives: dict[str, Path] = {}
-    for container in stack["containers"]:
-        artifact_name = container["image_artifact"]
-        service_ref = container["service_ref"]
-        download_dir = archive_dir / f"{service_ref}-download"
-        if download_dir.exists():
-            shutil.rmtree(download_dir)
-        download_dir.mkdir(parents=True, exist_ok=True)
-        run_local_command(
-            [
-                "gh",
-                "run",
-                "download",
-                source_run_id,
-                "--repo",
-                source_repository,
-                "--name",
-                artifact_name,
-                "--dir",
-                str(download_dir),
-            ]
-        )
-        candidates = sorted(download_dir.rglob("*.tar"))
-        if len(candidates) != 1:
-            raise RuntimeError(
-                f"expected exactly one image archive for {service_ref} from artifact {artifact_name}; "
-                f"found {len(candidates)}"
-            )
-        archive_path = archive_dir / f"{service_ref}.tar"
-        if archive_path.exists():
-            archive_path.unlink()
-        shutil.move(str(candidates[0]), str(archive_path))
-        shutil.rmtree(download_dir)
-        skopeo_path = shutil.which("skopeo")
-        if skopeo_path:
-            converted_path = archive_dir / f"{service_ref}.docker-archive.tar"
-            image_reference = container_image_reference(container)
-            run_local_command(
-                [
-                    skopeo_path,
-                    "copy",
-                    "--format",
-                    "v2s2",
-                    f"oci-archive:{archive_path}",
-                    f"docker-archive:{converted_path}:{image_reference}",
-                ]
-            )
-            archive_path.unlink()
-            converted_path.replace(archive_path)
-        archives[service_ref] = archive_path
-    return archives
-
-
-def stage_stack_images(stack: dict[str, Any], archive_dir: Path) -> dict[str, Path]:
-    if stack_uses_release_artifacts(stack):
-        return download_stack_image_artifacts(stack, archive_dir)
-    tool = find_local_image_tool()
-    archive_dir.mkdir(parents=True, exist_ok=True)
-    login_local_registry(tool)
-    archives: dict[str, Path] = {}
-    for container in stack["containers"]:
-        image_reference = container_image_reference(container)
-        archive_path = archive_dir / f"{container['service_ref']}.tar"
-        if archive_path.exists():
-            archive_path.unlink()
-        run_local_command([tool, "pull", image_reference])
-        run_local_command([tool, "save", "-o", str(archive_path), image_reference])
-        archives[container["service_ref"]] = archive_path
-    return archives
-
-
-def resolve_image_archives(stack: dict[str, Any], archive_dir: Path | None) -> dict[str, Path]:
-    if archive_dir is None:
-        return {}
-    resolved: dict[str, Path] = {}
-    for container in stack["containers"]:
-        archive_path = archive_dir / f"{container['service_ref']}.tar"
-        if not archive_path.exists():
-            raise FileNotFoundError(f"missing image archive for {container['service_ref']}: {archive_path}")
-        resolved[container["service_ref"]] = archive_path
-    return resolved
-
-
 def build_apply_script(
     stack: dict[str, Any],
     target: TargetGroup,
-    image_archive_paths: dict[str, str] | None = None,
 ) -> str:
     service_user = stack["service_user"]
     service_root = f"{target.service_root}/{stack['service_name']}"
@@ -411,7 +278,6 @@ def build_apply_script(
                 "env_profile": container["env_profile"],
                 "content": unit,
                 "volumes": container.get("volumes", []),
-                "image_archive_path": (image_archive_paths or {}).get(container["service_ref"]),
             }
         )
 
@@ -604,10 +470,6 @@ def build_apply_script(
             target_path = unit_dir / container["file_name"]
             target_path.write_text(container["content"], encoding="utf-8")
             run(["chown", f"{service_user}:{service_user}", str(target_path)])
-            image_archive_path = container.get("image_archive_path")
-            if image_archive_path:
-                run(["chown", f"{service_user}:{service_user}", image_archive_path])
-                run(["chmod", "0644", image_archive_path])
 
         run_user(f"podman network exists {{network_name}} || podman network create {{network_name}}".format(network_name=network_name))
         normalize_cni_network_config(network_name)
@@ -624,22 +486,7 @@ def build_apply_script(
                 input_text=registry_auth["password"],
             )
         for container in payload["containers"]:
-            image_archive_path = container.get("image_archive_path")
-            if image_archive_path:
-                if shutil.which("skopeo"):
-                    run_user_args(
-                        [
-                            "skopeo",
-                            "copy",
-                            f"docker-archive:{image_archive_path}",
-                            f"containers-storage:{container['image']}",
-                        ]
-                    )
-                else:
-                    run_user_args(["podman", "load", "-i", image_archive_path])
-                run(["rm", "-f", image_archive_path])
-            else:
-                run_user(f"podman pull {container['image']}")
+            run_user(f"podman pull {container['image']}")
         run_user("systemctl --user daemon-reload")
 
         for container in payload["containers"]:
@@ -711,29 +558,6 @@ def build_ssh_command(target: TargetGroup) -> list[str]:
     return ["ssh", "-p", str(target.ssh_port), ssh_target, remote_command]
 
 
-def build_scp_command(target: TargetGroup, local_path: Path, remote_path: str) -> list[str]:
-    ssh_target = f"{target.ssh_user}@{target.ssh_host}"
-    return ["scp", "-P", str(target.ssh_port), str(local_path), f"{ssh_target}:{remote_path}"]
-
-
-def upload_image_archives(
-    target: TargetGroup,
-    image_archives: dict[str, Path],
-    dry_run: bool,
-) -> dict[str, str]:
-    remote_archives: dict[str, str] = {}
-    upload_nonce = time.time_ns()
-    for service_ref, local_path in image_archives.items():
-        remote_path = f"/tmp/deployctl-{service_ref}-{upload_nonce}.tar"
-        command = build_scp_command(target, local_path, remote_path)
-        if dry_run:
-            print("# dry-run scp:", " ".join(shlex.quote(part) for part in command))
-        else:
-            subprocess.run(command, check=True)
-        remote_archives[service_ref] = remote_path
-    return remote_archives
-
-
 def run_ssh_script(target: TargetGroup, script: str, dry_run: bool) -> None:
     ssh_target = f"{target.ssh_user}@{target.ssh_host}"
     command = build_ssh_command(target)
@@ -755,20 +579,8 @@ def command_validate(args: argparse.Namespace) -> int:
 def command_apply(args: argparse.Namespace) -> int:
     stack = load_stack(args.service, args.environment)
     target = load_targets()[stack["target_group"]]
-    archive_dir = Path(args.image_archive_dir).resolve() if args.image_archive_dir else None
-    image_archives = resolve_image_archives(stack, archive_dir)
-    remote_archives = upload_image_archives(target, image_archives, args.dry_run)
-    script = build_apply_script(stack, target, remote_archives)
+    script = build_apply_script(stack, target)
     run_ssh_script(target, script, args.dry_run)
-    return 0
-
-
-def command_stage_images(args: argparse.Namespace) -> int:
-    stack = load_stack(args.service, args.environment)
-    archive_dir = Path(args.archive_dir).resolve()
-    archives = stage_stack_images(stack, archive_dir)
-    for service_ref, archive_path in sorted(archives.items()):
-        print(f"staged {service_ref}: {archive_path}")
     return 0
 
 
@@ -814,18 +626,8 @@ def build_parser() -> argparse.ArgumentParser:
     apply_parser = subparsers.add_parser("apply", help="apply a stack manifest")
     apply_parser.add_argument("service")
     apply_parser.add_argument("environment")
-    apply_parser.add_argument("--image-archive-dir")
     apply_parser.add_argument("--dry-run", action="store_true")
     apply_parser.set_defaults(func=command_apply)
-
-    stage_images_parser = subparsers.add_parser(
-        "stage-images",
-        help="pull and archive container images for one stack",
-    )
-    stage_images_parser.add_argument("service")
-    stage_images_parser.add_argument("environment")
-    stage_images_parser.add_argument("--archive-dir", required=True)
-    stage_images_parser.set_defaults(func=command_stage_images)
 
     status_parser = subparsers.add_parser("status", help="inspect a deployed stack")
     status_parser.add_argument("service")

@@ -177,11 +177,7 @@ class TestDeployCtl(unittest.TestCase):
             },
             clear=False,
         ):
-            script = deployctl.build_apply_script(
-                stack,
-                target,
-                {"corp-finance-monitor-backend": "/tmp/backend.tar"},
-            )
+            script = deployctl.build_apply_script(stack, target)
 
         self.assertIn('managed_file_paths = {item["path"] for item in managed_files}', script)
         self.assertIn('secret_base_root = Path(payload["secret_root"])', script)
@@ -193,10 +189,6 @@ class TestDeployCtl(unittest.TestCase):
         self.assertIn('registry_auth = payload.get("registry_auth")', script)
         self.assertIn('"podman",', script)
         self.assertIn('"login",', script)
-        self.assertIn('image_archive_path = container.get("image_archive_path")', script)
-        self.assertIn('if shutil.which("skopeo"):', script)
-        self.assertIn('"containers-storage:{container[\'image\']}"', script)
-        self.assertIn('run_user_args(["podman", "load", "-i", image_archive_path])', script)
         self.assertIn(
             'ccr.ccs.tencentyun.com/fin-monitor/corp-finance-monitor-backend:release-sha',
             deployctl.build_apply_script(
@@ -221,103 +213,7 @@ class TestDeployCtl(unittest.TestCase):
         self.assertIn('target_path.write_text(managed_file["content"], encoding="utf-8")', script)
         self.assertIn('run_user(f"podman pull {container[\'image\']}")', script)
 
-    def test_stage_stack_images_uses_local_container_tool(self) -> None:
-        stack = {
-            "containers": [
-                {
-                    "service_ref": "corp-finance-monitor-backend",
-                    "image_repository": "ccr.ccs.tencentyun.com/fin-monitor/corp-finance-monitor-backend",
-                    "image_digest": "sha256:1234",
-                    "image_tag": "release-sha",
-                }
-            ]
-        }
-
-        commands: list[list[str]] = []
-
-        def fake_run(cmd: list[str], **_: object) -> None:
-            commands.append(cmd)
-            if cmd[:3] == ["docker", "save", "-o"]:
-                Path(cmd[3]).write_text("archive", encoding="utf-8")
-
-        with tempfile.TemporaryDirectory() as tmpdir, patch(
-            "tools.deployctl.shutil.which",
-            side_effect=lambda candidate: "/usr/bin/docker" if candidate == "docker" else None,
-        ), patch(
-            "tools.deployctl.subprocess.run",
-            side_effect=fake_run,
-        ), patch.dict(
-            os.environ,
-            {
-                "DEPLOYCTL_REGISTRY": "ccr.ccs.tencentyun.com",
-                "DEPLOYCTL_REGISTRY_USERNAME": "tcuser",
-                "DEPLOYCTL_REGISTRY_TOKEN": "token-value",
-            },
-            clear=False,
-        ):
-            archives = deployctl.stage_stack_images(stack, Path(tmpdir))
-
-        archive_path = Path(tmpdir) / "corp-finance-monitor-backend.tar"
-        self.assertEqual(archives["corp-finance-monitor-backend"], archive_path)
-        self.assertEqual(
-            commands[0],
-            ["docker", "login", "ccr.ccs.tencentyun.com", "--username", "tcuser", "--password-stdin"],
-        )
-        self.assertEqual(
-            commands[1],
-            ["docker", "pull", "ccr.ccs.tencentyun.com/fin-monitor/corp-finance-monitor-backend:release-sha"],
-        )
-        self.assertEqual(
-            commands[2],
-            [
-                "docker",
-                "save",
-                "-o",
-                str(archive_path),
-                "ccr.ccs.tencentyun.com/fin-monitor/corp-finance-monitor-backend:release-sha",
-            ],
-        )
-
-    def test_stage_stack_images_prefers_release_artifacts(self) -> None:
-        stack = {
-            "artifact_source_repository": "Lynskylate/corp-finance-monitor",
-            "artifact_source_run_id": 26771237800,
-            "containers": [
-                {
-                    "service_ref": "corp-finance-monitor-backend",
-                    "image_artifact": "release-image-corp-finance-monitor-backend",
-                    "image_repository": "ccr.ccs.tencentyun.com/fin-monitor/corp-finance-monitor-backend",
-                    "image_tag": "release-sha",
-                }
-            ],
-        }
-
-        def fake_run(cmd: list[str], **_: object) -> None:
-            if cmd[0] == "gh":
-                download_dir = Path(cmd[cmd.index("--dir") + 1])
-                (download_dir / "corp-finance-monitor-backend.tar").write_text("archive", encoding="utf-8")
-                return
-            if cmd[0] == "/usr/bin/skopeo":
-                destination = cmd[-1].removeprefix("docker-archive:")
-                tar_index = destination.find(".tar")
-                converted = Path(destination[: tar_index + 4])
-                converted.write_text("converted-archive", encoding="utf-8")
-                return
-            raise AssertionError(cmd)
-
-        with tempfile.TemporaryDirectory() as tmpdir, patch(
-            "tools.deployctl.shutil.which",
-            side_effect=lambda candidate: f"/usr/bin/{candidate}" if candidate in {"gh", "skopeo"} else None,
-        ), patch(
-            "tools.deployctl.subprocess.run",
-            side_effect=fake_run,
-        ):
-            archives = deployctl.stage_stack_images(stack, Path(tmpdir))
-            archive_path = Path(tmpdir) / "corp-finance-monitor-backend.tar"
-            self.assertEqual(archives["corp-finance-monitor-backend"], archive_path)
-            self.assertTrue(archive_path.exists())
-
-    def test_command_apply_uploads_image_archives_before_ssh(self) -> None:
+    def test_command_apply_builds_script_and_runs_ssh(self) -> None:
         stack = {
             "service_name": "corp-finance-monitor",
             "service_user": "svc-corp-finance-monitor",
@@ -347,35 +243,27 @@ class TestDeployCtl(unittest.TestCase):
             default_healthcheck_timeout_seconds=60,
         )
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            archive_path = Path(tmpdir) / "corp-finance-monitor-backend.tar"
-            archive_path.write_text("archive", encoding="utf-8")
-            args = type(
-                "Args",
-                (),
-                {
-                    "service": "corp-finance-monitor",
-                    "environment": "prod",
-                    "image_archive_dir": tmpdir,
-                    "dry_run": False,
-                },
-            )()
-            with patch("tools.deployctl.load_stack", return_value=stack), patch(
-                "tools.deployctl.load_targets",
-                return_value={"gtr-core": target},
-            ), patch(
-                "tools.deployctl.upload_image_archives",
-                return_value={"corp-finance-monitor-backend": "/tmp/backend.tar"},
-            ) as upload_mock, patch(
-                "tools.deployctl.run_ssh_script",
-            ) as ssh_mock:
-                result = deployctl.command_apply(args)
+        args = type(
+            "Args",
+            (),
+            {
+                "service": "corp-finance-monitor",
+                "environment": "prod",
+                "dry_run": False,
+            },
+        )()
+        with patch("tools.deployctl.load_stack", return_value=stack), patch(
+            "tools.deployctl.load_targets",
+            return_value={"gtr-core": target},
+        ), patch(
+            "tools.deployctl.run_ssh_script",
+        ) as ssh_mock:
+            result = deployctl.command_apply(args)
 
         self.assertEqual(result, 0)
-        upload_mock.assert_called_once()
         ssh_mock.assert_called_once()
         script = ssh_mock.call_args.args[1]
-        self.assertIn("/tmp/backend.tar", script)
+        self.assertIn('run_user(f"podman pull {container[\'image\']}")', script)
 
 
 if __name__ == "__main__":
