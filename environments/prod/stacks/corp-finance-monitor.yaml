@@ -22,7 +22,7 @@ managed_files:
     \    stocks: [\"000725\", \"600519\", \"000858\"]\n      interval_minutes: 60\n\
     \    - name: full\n      interval_minutes: 720\n      use_registry: true\n  disclosure_windows:\n\
     \    - months: [1, 2, 3, 4]\n      multiplier: 0.5\n    - months: [7, 8]\n   \
-    \   multiplier: 0.5\nsources:\n  cninfo:\n    options:\n      full_market: false\n\
+    \   multiplier: 0.5\nsources:\n  cninfo:\n    options:\n      full_market: true\n\
     \      full_market_batch_size: 50\n    watchlist:\n      - stock: \"000725\"\n\
     \        org_id: \"gssz0000725\"\n        kinds: [annual, semi, q1, q3]\n  sse:\n\
     \    watchlist: []\n  hkex:\n    watchlist:\n      - stock: \"00700\"\n      \
