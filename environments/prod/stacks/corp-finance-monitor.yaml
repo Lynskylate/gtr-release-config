@@ -27,7 +27,7 @@ containers:
 - service_ref: corp-finance-monitor-backend
   container_name: corp-finance-monitor-backend
   image_repository: ghcr.io/lynskylate/corp-finance-monitor-backend
-  image_digest: sha256:0a349a5e00ca69947a18b36261a86f728a98b2af8a875f1d4d732b74f583d4bd
+  image_digest: sha256:a7d209c63589ad96a4d23365cd5771be7559eec5a50a918aaa0a7a7da447478e
   env_profile: corp-finance-monitor-backend
   container_port: 8190
   ip_address: 10.89.0.10
@@ -40,12 +40,12 @@ containers:
   - source: /srv/projects/corp-finance-monitor/data
     target: /app/data
     mode: rw
-  image_tag: 9fb8a7a8baf41bc44dfc7754b114e238a5c90ffa
+  image_tag: 9794dbd2578fbc597fe485690dcde97f9b995b4e
   image_artifact: release-image-corp-finance-monitor-backend
 - service_ref: corp-finance-monitor-frontend
   container_name: corp-finance-monitor-frontend
   image_repository: ghcr.io/lynskylate/corp-finance-monitor-frontend
-  image_digest: sha256:618e29e97ded64f8f51f0df739ac1b60368f1ca1daab353bf09bd21fe258ebe5
+  image_digest: sha256:124c8a39292277a2fb137252b1f6cbbda564ad87103266a69da2e1f2ac2d058a
   env_profile: corp-finance-monitor-frontend
   container_port: 80
   host_port: 8190
@@ -58,10 +58,15 @@ containers:
   entrypoint: /bin/sh
   command:
   - -lc
-  - sed -i "s/^user  nginx;/user root;/" /etc/nginx/nginx.conf && exec nginx -g "daemon off;"
-  image_tag: 9fb8a7a8baf41bc44dfc7754b114e238a5c90ffa
+  - sed -i "s/^user  nginx;/user root;/" /etc/nginx/nginx.conf && exec nginx -g "daemon
+    off;"
+  image_tag: 9794dbd2578fbc597fe485690dcde97f9b995b4e
   image_artifact: release-image-corp-finance-monitor-frontend
 rollback_history:
+- released_at: '2026-06-02T11:43:05.738522+00:00'
+  containers:
+    corp-finance-monitor-backend: sha256:0a349a5e00ca69947a18b36261a86f728a98b2af8a875f1d4d732b74f583d4bd
+    corp-finance-monitor-frontend: sha256:618e29e97ded64f8f51f0df739ac1b60368f1ca1daab353bf09bd21fe258ebe5
 - released_at: '2026-06-01T19:03:40.605688+00:00'
   containers:
     corp-finance-monitor-backend: sha256:cb129d0400097ab496ac2dcc48e29aa893d36aeabea90106e4192f4618258d9d
@@ -82,6 +87,6 @@ rollback_history:
   containers:
     corp-finance-monitor-backend: sha256:331ab360add4c6780c1c4cb9712439f49dc1d8f1704c75f48bdf404721770f26
     corp-finance-monitor-frontend: sha256:d5a3f1d1943fda4e2ecd1aa5c9c0a6ae9184a9b54217280aabc340aaf975c7c3
-updated_at: '2026-06-01T19:03:40.605708+00:00'
+updated_at: '2026-06-02T11:43:05.738544+00:00'
 artifact_source_repository: Lynskylate/corp-finance-monitor
-artifact_source_run_id: 26775673966
+artifact_source_run_id: 26817385925
