@@ -32,7 +32,7 @@ containers:
 - service_ref: corp-finance-monitor-backend
   container_name: corp-finance-monitor-backend
   image_repository: ccr.ccs.tencentyun.com/fin-monitor/corp-finance-monitor-backend
-  image_digest: sha256:fa9fd00cbdb93f763ddcdd0a7713b60b83b4d1927fc595b8d0489c78138a6435
+  image_digest: sha256:eb88a1ff4d11601cdcaac6ee886c8988e3e7b22673e35c15b8fbfbd1544c47eb
   env_profile: corp-finance-monitor-backend
   container_port: 8190
   ip_address: 10.89.0.10
@@ -45,12 +45,12 @@ containers:
   - source: /srv/projects/corp-finance-monitor/data
     target: /app/data
     mode: rw
-  image_tag: 8b3dec47db81062bd77edde30161e5c33bf7e713
+  image_tag: 0eeebc35acb11488d5164904941844b16ea170f2
   image_artifact: release-image-corp-finance-monitor-backend
 - service_ref: corp-finance-monitor-frontend
   container_name: corp-finance-monitor-frontend
   image_repository: ccr.ccs.tencentyun.com/fin-monitor/corp-finance-monitor-frontend
-  image_digest: sha256:5bac94d7aa8ef6c1c450bc8ce21bf11da697825a604467bfc0d62ac61311da99
+  image_digest: sha256:43ff59aaafce3c7456890b199ec1aacd9ec74ebdb34ef4e0e8ebadafed85311c
   env_profile: corp-finance-monitor-frontend
   container_port: 80
   host_port: 8190
@@ -65,9 +65,13 @@ containers:
   - -lc
   - sed -i "s/^user  nginx;/user root;/" /etc/nginx/nginx.conf && exec nginx -g "daemon
     off;"
-  image_tag: 8b3dec47db81062bd77edde30161e5c33bf7e713
+  image_tag: 0eeebc35acb11488d5164904941844b16ea170f2
   image_artifact: release-image-corp-finance-monitor-frontend
 rollback_history:
+- released_at: '2026-06-02T18:27:50.191983+00:00'
+  containers:
+    corp-finance-monitor-backend: sha256:fa9fd00cbdb93f763ddcdd0a7713b60b83b4d1927fc595b8d0489c78138a6435
+    corp-finance-monitor-frontend: sha256:5bac94d7aa8ef6c1c450bc8ce21bf11da697825a604467bfc0d62ac61311da99
 - released_at: '2026-06-02T18:04:49.703166+00:00'
   containers:
     corp-finance-monitor-backend: sha256:0df15affaabca8b194660da9238825aa3a5bdb86bd29f84c71e71ae15b881500
@@ -120,6 +124,6 @@ rollback_history:
   containers:
     corp-finance-monitor-backend: sha256:331ab360add4c6780c1c4cb9712439f49dc1d8f1704c75f48bdf404721770f26
     corp-finance-monitor-frontend: sha256:d5a3f1d1943fda4e2ecd1aa5c9c0a6ae9184a9b54217280aabc340aaf975c7c3
-updated_at: '2026-06-02T18:04:49.703182+00:00'
+updated_at: '2026-06-02T18:27:50.191999+00:00'
 artifact_source_repository: Lynskylate/corp-finance-monitor
-artifact_source_run_id: 26838542620
+artifact_source_run_id: 26839760947
