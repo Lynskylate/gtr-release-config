@@ -24,7 +24,7 @@ managed_files:
     \    - months: [1, 2, 3, 4]\n      multiplier: 0.5\n    - months: [7, 8]\n   \
     \   multiplier: 0.5\nsources:\n  cninfo:\n    options:\n      full_market: true\n\
     \      full_market_batch_size: 50\n    watchlist:\n      - stock: \"000725\"\n\
-    \        org_id: \"gssz0000725\"\n        kinds: [annual, semi, q1, q3]\n  sse:\n\
+    \        org_id: \"gssz0000725\"\n        kinds: [annual, semi, q1, q3]\n      - stock: \"600519\"\n        org_id: \"gssh0600519\"\n        kinds: [annual, semi, q1, q3]\n      - stock: \"000858\"\n        org_id: \"gssz0000858\"\n        kinds: [annual, semi, q1, q3]\n  sse:\n\
     \    watchlist: []\n  hkex:\n    watchlist:\n      - stock: \"00700\"\n      \
     \  kinds: [annual, interim]\n      - stock: \"09988\"\n        kinds: [annual,\
     \ interim]\n"
