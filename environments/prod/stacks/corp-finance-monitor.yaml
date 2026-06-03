@@ -70,7 +70,7 @@ containers:
 - service_ref: corp-finance-monitor-scheduler
   container_name: corp-finance-monitor-scheduler
   image_repository: ccr.ccs.tencentyun.com/fin-monitor/corp-finance-monitor-scheduler
-  image_digest: sha256:placeholder
+  image_digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
   env_profile: corp-finance-monitor-backend
   container_port: 8191
   depends_on:
@@ -92,7 +92,6 @@ containers:
   - source: /srv/projects/corp-finance-monitor/data
     target: /app/data
     mode: rw
-  image_tag: placeholder
   image_artifact: release-image-corp-finance-monitor-scheduler
 rollback_history: []
 updated_at: '2026-06-03T02:23:30.227923+00:00'
