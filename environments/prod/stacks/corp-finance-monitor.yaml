@@ -67,11 +67,12 @@ containers:
     off;"
   image_tag: a35f0077a994a3609efe1f555605605ce9db85c6
   image_artifact: release-image-corp-finance-monitor-frontend
-- service_ref: corp-finance-monitor-backend
+- service_ref: corp-finance-monitor-scheduler
   container_name: corp-finance-monitor-scheduler
-  image_repository: ccr.ccs.tencentyun.com/fin-monitor/corp-finance-monitor-backend
-  image_digest: sha256:fc9d8864ffd3f0a85993a3db16368ead02d68cdaad452769cd583caffb620771
+  image_repository: ccr.ccs.tencentyun.com/fin-monitor/corp-finance-monitor-scheduler
+  image_digest: sha256:placeholder
   env_profile: corp-finance-monitor-backend
+  container_port: 8191
   depends_on:
   - corp-finance-monitor-backend
   network_aliases:
@@ -91,89 +92,9 @@ containers:
   - source: /srv/projects/corp-finance-monitor/data
     target: /app/data
     mode: rw
-  image_tag: a35f0077a994a3609efe1f555605605ce9db85c6
-  image_artifact: release-image-corp-finance-monitor-backend
-rollback_history:
-- released_at: '2026-06-03T02:23:30.227901+00:00'
-  containers:
-    corp-finance-monitor-backend: sha256:bcf145eb3e8e69496fb34148ee2f46c9c40f37330ea520eb7668b686c09cdaab
-    corp-finance-monitor-frontend: sha256:4efc2901bd3c6cb0b496a072fd323547f984705ffeba00a7333eba4851a0a191
-- released_at: '2026-06-03T02:19:55.733854+00:00'
-  containers:
-    corp-finance-monitor-backend: sha256:d43854bcd1e046fb53932a4850bf84ab3f6f45e798abe290930d59970b8a42cb
-    corp-finance-monitor-frontend: sha256:3a9a428fa9028e8d3fa68f66d0ada324961245db69f92c502fe5f532b5b7f1a7
-- released_at: '2026-06-03T02:03:41.670835+00:00'
-  containers:
-    corp-finance-monitor-backend: sha256:33f9a4fda10414480e46ecca7c8d09405570af50a4b9095d9d139bb36de7603d
-    corp-finance-monitor-frontend: sha256:6bbbf6546000bb57bdcfb5ad6a3806fbe0cbeb6379e6ae6d43f8ba523953d31f
-- released_at: '2026-06-02T19:34:12.291866+00:00'
-  containers:
-    corp-finance-monitor-backend: sha256:d09695e444f21a4ce6541d9c45f0466bb360db2f02a56a65f54f7f85f5767e92
-    corp-finance-monitor-frontend: sha256:7a1bd408e9b71ea88c43cc6ec7ab9b51daa625c93e1eb44880f3bf2fcc5d3626
-- released_at: '2026-06-02T18:46:19.289807+00:00'
-  containers:
-    corp-finance-monitor-backend: sha256:5f84d23d94f1f8c4ab43660da30333d4a1e181dee7c1f358a1bd591006dae665
-    corp-finance-monitor-frontend: sha256:07235640153cc68b9360e7863b768372d193fcc38b685f762a32780de608afa6
-- released_at: '2026-06-02T18:36:19.492778+00:00'
-  containers:
-    corp-finance-monitor-backend: sha256:eb88a1ff4d11601cdcaac6ee886c8988e3e7b22673e35c15b8fbfbd1544c47eb
-    corp-finance-monitor-frontend: sha256:43ff59aaafce3c7456890b199ec1aacd9ec74ebdb34ef4e0e8ebadafed85311c
-- released_at: '2026-06-02T18:27:50.191983+00:00'
-  containers:
-    corp-finance-monitor-backend: sha256:fa9fd00cbdb93f763ddcdd0a7713b60b83b4d1927fc595b8d0489c78138a6435
-    corp-finance-monitor-frontend: sha256:5bac94d7aa8ef6c1c450bc8ce21bf11da697825a604467bfc0d62ac61311da99
-- released_at: '2026-06-02T18:04:49.703166+00:00'
-  containers:
-    corp-finance-monitor-backend: sha256:0df15affaabca8b194660da9238825aa3a5bdb86bd29f84c71e71ae15b881500
-    corp-finance-monitor-frontend: sha256:6c334c0c299f4d89440ad249924c9783ac86aeb299ff35f4af06a0f8debd5399
-- released_at: '2026-06-02T16:28:05.222456+00:00'
-  containers:
-    corp-finance-monitor-backend: sha256:0df15affaabca8b194660da9238825aa3a5bdb86bd29f84c71e71ae15b881500
-    corp-finance-monitor-frontend: sha256:e90bf961f6502ca754283ba6a92200b203277965cd5ac4e2f6d70071020f1301
-- released_at: '2026-06-02T16:21:40.680709+00:00'
-  containers:
-    corp-finance-monitor-backend: sha256:bb0e2f494d38e3dc63b7e0d58e698a1c333691b054351f19fe8a3db7a7b00fda
-    corp-finance-monitor-frontend: sha256:e90bf961f6502ca754283ba6a92200b203277965cd5ac4e2f6d70071020f1301
-- released_at: '2026-06-02T14:36:11.971144+00:00'
-  containers:
-    corp-finance-monitor-backend: sha256:e619633d44900829211fd28cbe5cb8531a347b341cd37e3c7dbe14cdbf6e6dc7
-    corp-finance-monitor-frontend: sha256:e10d141071704b37bcf5ea7dda90e2a1da2d619dc3d9fea99a9111271d0f7e30
-- released_at: '2026-06-02T14:15:24.006838+00:00'
-  containers:
-    corp-finance-monitor-backend: sha256:19701ebc5b75889669ae117002e59ecf55aa26212aef48e678cab3cdea55f3c7
-    corp-finance-monitor-frontend: sha256:e10d141071704b37bcf5ea7dda90e2a1da2d619dc3d9fea99a9111271d0f7e30
-- released_at: '2026-06-02T13:50:43.880764+00:00'
-  containers:
-    corp-finance-monitor-backend: sha256:cb8ae9c28d7c1c904e3e9bbd3f421adade46e9f887e6de6ef0d7eca6c84f4d26
-    corp-finance-monitor-frontend: sha256:124c8a39292277a2fb137252b1f6cbbda564ad87103266a69da2e1f2ac2d058a
-- released_at: '2026-06-02T13:29:20.980834+00:00'
-  containers:
-    corp-finance-monitor-backend: sha256:a7d209c63589ad96a4d23365cd5771be7559eec5a50a918aaa0a7a7da447478e
-    corp-finance-monitor-frontend: sha256:124c8a39292277a2fb137252b1f6cbbda564ad87103266a69da2e1f2ac2d058a
-- released_at: '2026-06-02T11:43:05.738522+00:00'
-  containers:
-    corp-finance-monitor-backend: sha256:0a349a5e00ca69947a18b36261a86f728a98b2af8a875f1d4d732b74f583d4bd
-    corp-finance-monitor-frontend: sha256:618e29e97ded64f8f51f0df739ac1b60368f1ca1daab353bf09bd21fe258ebe5
-- released_at: '2026-06-01T19:03:40.605688+00:00'
-  containers:
-    corp-finance-monitor-backend: sha256:cb129d0400097ab496ac2dcc48e29aa893d36aeabea90106e4192f4618258d9d
-    corp-finance-monitor-frontend: sha256:618e29e97ded64f8f51f0df739ac1b60368f1ca1daab353bf09bd21fe258ebe5
-- released_at: '2026-06-01T17:48:09.159069+00:00'
-  containers:
-    corp-finance-monitor-backend: sha256:c8f4829039cb0dcfb1f4f6444935ddb07193352be71ea3eb833185204860cd72
-    corp-finance-monitor-frontend: sha256:fb8e3b8a47cdd2ff9e152c9773730e493ab5c7951be4c05b391f2cab5d413e3e
-- released_at: '2026-06-01T17:37:25.159682+00:00'
-  containers:
-    corp-finance-monitor-backend: sha256:c8f4829039cb0dcfb1f4f6444935ddb07193352be71ea3eb833185204860cd72
-    corp-finance-monitor-frontend: sha256:da4c9bbb86c0b9eec922451b5f377adc836cb8949be7967311afe50bd3c9b2f9
-- released_at: '2026-06-01T17:17:28.009448+00:00'
-  containers:
-    corp-finance-monitor-backend: sha256:bcf0f818d65a06fac6bfe3deefce9b4450ae54abb4abcad27bbcab9beda2b806
-    corp-finance-monitor-frontend: sha256:da4c9bbb86c0b9eec922451b5f377adc836cb8949be7967311afe50bd3c9b2f9
-- released_at: '2026-06-01T17:09:14.672846+00:00'
-  containers:
-    corp-finance-monitor-backend: sha256:331ab360add4c6780c1c4cb9712439f49dc1d8f1704c75f48bdf404721770f26
-    corp-finance-monitor-frontend: sha256:d5a3f1d1943fda4e2ecd1aa5c9c0a6ae9184a9b54217280aabc340aaf975c7c3
+  image_tag: placeholder
+  image_artifact: release-image-corp-finance-monitor-scheduler
+rollback_history: []
 updated_at: '2026-06-03T02:23:30.227923+00:00'
 artifact_source_repository: Lynskylate/corp-finance-monitor
 artifact_source_run_id: 26859837092
