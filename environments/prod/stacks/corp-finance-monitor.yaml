@@ -32,7 +32,7 @@ containers:
 - service_ref: corp-finance-monitor-backend
   container_name: corp-finance-monitor-backend
   image_repository: ccr.ccs.tencentyun.com/fin-monitor/corp-finance-monitor-backend
-  image_digest: sha256:bb7672e4f4ea0f0c741bb6e4b6ae7e29ea90a569430730b30c5990b2197c0ece
+  image_digest: sha256:4ad6199afed6d61f03f62319fca5d2b283bffbcd5f5fe0c325850d47047278f9
   env_profile: corp-finance-monitor-backend
   container_port: 8190
   ip_address: 10.89.0.10
@@ -45,7 +45,7 @@ containers:
   - source: /srv/projects/corp-finance-monitor/data
     target: /app/data
     mode: rw
-  image_tag: 48c7336b4a3c85c9d8e0e759a0c2b3935b873899
+  image_tag: 3ecafd530cba37d836a27f0bf675f169802e21b0
   image_artifact: release-image-corp-finance-monitor-backend
 - service_ref: corp-finance-monitor-frontend
   container_name: corp-finance-monitor-frontend
@@ -65,12 +65,12 @@ containers:
   - -lc
   - sed -i "s/^user  nginx;/user root;/" /etc/nginx/nginx.conf && exec nginx -g "daemon
     off;"
-  image_tag: 48c7336b4a3c85c9d8e0e759a0c2b3935b873899
+  image_tag: 3ecafd530cba37d836a27f0bf675f169802e21b0
   image_artifact: release-image-corp-finance-monitor-frontend
 - service_ref: corp-finance-monitor-scheduler
   container_name: corp-finance-monitor-scheduler
   image_repository: ccr.ccs.tencentyun.com/fin-monitor/corp-finance-monitor-scheduler
-  image_digest: sha256:2545f7d836db1e9d346b7c705c0a21c1322df6f77edc7f8baf75e56354146dab
+  image_digest: sha256:c9c600af2d5014d3751eb632a834d0306da25021f3204e756a28ddfe19eb6cae
   env_profile: corp-finance-monitor-backend
   container_port: 8191
   depends_on:
@@ -93,13 +93,18 @@ containers:
     target: /app/data
     mode: rw
   image_artifact: release-image-corp-finance-monitor-scheduler
-  image_tag: 48c7336b4a3c85c9d8e0e759a0c2b3935b873899
+  image_tag: 3ecafd530cba37d836a27f0bf675f169802e21b0
 rollback_history:
+- released_at: '2026-06-03T12:27:18.804559+00:00'
+  containers:
+    corp-finance-monitor-backend: sha256:bb7672e4f4ea0f0c741bb6e4b6ae7e29ea90a569430730b30c5990b2197c0ece
+    corp-finance-monitor-frontend: sha256:31a5525d6f619824a0096fef4b160b9f07fcabf0e087c776bf826a1e90740862
+    corp-finance-monitor-scheduler: sha256:2545f7d836db1e9d346b7c705c0a21c1322df6f77edc7f8baf75e56354146dab
 - released_at: '2026-06-03T11:14:30.251723+00:00'
   containers:
     corp-finance-monitor-backend: sha256:fc9d8864ffd3f0a85993a3db16368ead02d68cdaad452769cd583caffb620771
     corp-finance-monitor-frontend: sha256:4efc2901bd3c6cb0b496a072fd323547f984705ffeba00a7333eba4851a0a191
     corp-finance-monitor-scheduler: sha256:0000000000000000000000000000000000000000000000000000000000000000
-updated_at: '2026-06-03T11:14:30.251744+00:00'
+updated_at: '2026-06-03T12:27:18.804582+00:00'
 artifact_source_repository: Lynskylate/corp-finance-monitor
-artifact_source_run_id: 26880785639
+artifact_source_run_id: 26884371743
