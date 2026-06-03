@@ -217,7 +217,11 @@ def render_service_unit(stack: dict[str, Any], container: dict[str, Any], target
         podman_args.extend(["--cpus", str(limits["cpus"])])
     entrypoint = container.get("entrypoint")
     if entrypoint:
-        podman_args.extend(["--entrypoint", str(entrypoint)])
+        if isinstance(entrypoint, list):
+            entrypoint_str = " ".join(str(e) for e in entrypoint)
+        else:
+            entrypoint_str = str(entrypoint)
+        podman_args.extend(["--entrypoint", entrypoint_str])
     for volume in container.get("volumes", []):
         podman_args.extend(
             [

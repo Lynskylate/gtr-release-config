@@ -65,6 +65,77 @@ class TestDeployCtl(unittest.TestCase):
         self.assertIn(" -lc 'echo test'", unit)
         self.assertIn("ccr.ccs.tencentyun.com/fin-monitor/corp-finance-monitor-frontend:abc123", unit)
 
+    def test_render_service_unit_entrypoint_list(self) -> None:
+        """Entrypoint as a YAML list (e.g. ['python']) must render as a plain
+        string, not the Python repr \"['python']\" which causes exit code 127."""
+        target = deployctl.TargetGroup(
+            name="gtr-core",
+            ssh_host="gtr.tail414c32.ts.net",
+            ssh_user="root",
+            ssh_port=22,
+            require_sudo=False,
+            service_root="/srv/projects",
+            secret_root="/srv/project-secrets",
+            default_healthcheck_timeout_seconds=60,
+        )
+        stack = {
+            "service_name": "corp-finance-monitor",
+            "service_user": "svc-corp-finance-monitor",
+            "runtime": {"type": "rootless-podman", "network": {"name": "corp-finance-monitor"}},
+        }
+        container = {
+            "service_ref": "corp-finance-monitor-scheduler",
+            "container_name": "corp-finance-monitor-scheduler",
+            "image_repository": "ccr.ccs.tencentyun.com/fin-monitor/corp-finance-monitor-scheduler",
+            "image_digest": "sha256:abcd",
+            "env_profile": "corp-finance-monitor-backend",
+            "container_port": 8191,
+            "entrypoint": ["python"],
+            "command": ["-m", "corp_finance_monitor", "run", "-c", "/app/config.yaml"],
+        }
+
+        unit = deployctl.render_service_unit(stack, container, target)
+
+        # Must NOT contain Python repr like "['python']"
+        self.assertNotIn("['python']", unit)
+        self.assertNotIn('"[', unit)
+        # Must contain the correct plain entrypoint
+        self.assertIn("--entrypoint python", unit)
+        # Command args must also render correctly
+        self.assertIn("-m corp_finance_monitor run -c /app/config.yaml", unit)
+
+    def test_render_service_unit_entrypoint_multi_element_list(self) -> None:
+        """Multi-element list entrypoint joins with space."""
+        target = deployctl.TargetGroup(
+            name="gtr-core",
+            ssh_host="gtr.tail414c32.ts.net",
+            ssh_user="root",
+            ssh_port=22,
+            require_sudo=False,
+            service_root="/srv/projects",
+            secret_root="/srv/project-secrets",
+            default_healthcheck_timeout_seconds=60,
+        )
+        stack = {
+            "service_name": "test-svc",
+            "service_user": "svc-test",
+            "runtime": {"type": "rootless-podman", "network": {"name": "test"}},
+        }
+        container = {
+            "service_ref": "test-worker",
+            "container_name": "test-worker",
+            "image_repository": "example/test-worker",
+            "image_digest": "sha256:1234",
+            "env_profile": "test-worker",
+            "container_port": 8080,
+            "entrypoint": ["python", "-u"],
+        }
+
+        unit = deployctl.render_service_unit(stack, container, target)
+
+        self.assertNotIn("['python', '-u']", unit)
+        self.assertIn("--entrypoint 'python -u'", unit)
+
     def test_validate_repo_accepts_sample_stack(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
