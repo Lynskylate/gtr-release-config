@@ -15,7 +15,7 @@ healthcheck:
 managed_files:
 - path: /srv/projects/corp-finance-monitor/config/config.yaml
   mode: '0644'
-  content: "engine:\n  run_once: true\n  interval_minutes: 360\n  concurrency: 1\n\
+  content: "engine:\n  run_once: false\n  interval_minutes: 360\n  concurrency: 1\n\
     \  fetch_delay_seconds: 0.5\nstorage:\n  backend: disk\n  base_dir: ./data\nstate_store:\n\
     \  backend: sqlite\n  path: ./data/.cfm_state/state.db\napi:\n  enabled: true\n\
     \  host: 127.0.0.1\n  port: 8190\nscheduling:\n  tiers:\n    - name: core\n  \
@@ -67,6 +67,32 @@ containers:
     off;"
   image_tag: a35f0077a994a3609efe1f555605605ce9db85c6
   image_artifact: release-image-corp-finance-monitor-frontend
+- service_ref: corp-finance-monitor-backend
+  container_name: corp-finance-monitor-scheduler
+  image_repository: ccr.ccs.tencentyun.com/fin-monitor/corp-finance-monitor-backend
+  image_digest: sha256:fc9d8864ffd3f0a85993a3db16368ead02d68cdaad452769cd583caffb620771
+  env_profile: corp-finance-monitor-backend
+  depends_on:
+  - corp-finance-monitor-backend
+  network_aliases:
+  - scheduler
+  entrypoint:
+  - python
+  command:
+  - -m
+  - corp_finance_monitor
+  - run
+  - -c
+  - /app/config.yaml
+  volumes:
+  - source: /srv/projects/corp-finance-monitor/config/config.yaml
+    target: /app/config.yaml
+    mode: ro
+  - source: /srv/projects/corp-finance-monitor/data
+    target: /app/data
+    mode: rw
+  image_tag: a35f0077a994a3609efe1f555605605ce9db85c6
+  image_artifact: release-image-corp-finance-monitor-backend
 rollback_history:
 - released_at: '2026-06-03T02:23:30.227901+00:00'
   containers:
