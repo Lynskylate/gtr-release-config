@@ -24,14 +24,14 @@ managed_files:
     \    - months: [1, 2, 3, 4]\n      multiplier: 0.5\n    - months: [7, 8]\n   \
     \   multiplier: 0.5\nsources:\n  cninfo:\n    options:\n      full_market: true\n\
     \      full_market_batch_size: 100\n    fetch_filter:\n      kinds: [annual, q1]\n\
-    \      year_range: [2025, 2026]\n    watchlist:\n      - stock: \"000725\"\n\
-    \        org_id: \"gssz0000725\"\n        kinds: [annual, semi, q1, q3]\n    \
-    \  - stock: \"600519\"\n        org_id: \"gssh0600519\"\n        kinds: [annual,\
+    \      year_range: [2025, 2026]\n    watchlist:\n      - stock: \"000725\"\n \
+    \       org_id: \"gssz0000725\"\n        kinds: [annual, semi, q1, q3]\n     \
+    \ - stock: \"600519\"\n        org_id: \"gssh0600519\"\n        kinds: [annual,\
     \ semi, q1, q3]\n      - stock: \"000858\"\n        org_id: \"gssz0000858\"\n\
-    \        kinds: [annual, semi, q1, q3]\n  sse:\n    watchlist: []\n  hkex:\n    options:\n\
-    \      full_market: true\n      full_market_batch_size: 100\n    watchlist:\n      - stock: \"00700\"\n\
-    \        kinds: [annual, interim]\n      - stock: \"09988\"\n\
-    \        kinds: [annual, interim]\n"
+    \        kinds: [annual, semi, q1, q3]\n  sse:\n    watchlist: []\n  hkex:\n \
+    \   options:\n      full_market: true\n      full_market_batch_size: 100\n   \
+    \ watchlist:\n      - stock: \"00700\"\n        kinds: [annual, interim]\n   \
+    \   - stock: \"09988\"\n        kinds: [annual, interim]\n"
 containers:
 - service_ref: corp-finance-monitor-backend
   container_name: corp-finance-monitor-backend
@@ -54,7 +54,7 @@ containers:
 - service_ref: corp-finance-monitor-frontend
   container_name: corp-finance-monitor-frontend
   image_repository: ccr.ccs.tencentyun.com/fin-monitor/corp-finance-monitor-frontend
-  image_digest: sha256:db559e9367a5dbcd0fd6e4175bd248bc12fe34a46a4dd9afb0d9400c2514216b
+  image_digest: sha256:9961d71d002187f847fc4ff64357f9657927fc946b473a33e428e46cd448d807
   env_profile: corp-finance-monitor-frontend
   container_port: 80
   host_port: 8190
@@ -74,7 +74,7 @@ containers:
 - service_ref: corp-finance-monitor-scheduler
   container_name: corp-finance-monitor-scheduler
   image_repository: ccr.ccs.tencentyun.com/fin-monitor/corp-finance-monitor-scheduler
-  image_digest: sha256:f2aef037bf592e8a72556d1cf726a5c50f87056d365d2d054f8241584d0a4f59
+  image_digest: sha256:3d891362140e171124be44055c681c3f830925feb3fb6cab1588a66518d0bdaf
   env_profile: corp-finance-monitor-backend
   container_port: 8191
   depends_on:
@@ -99,6 +99,11 @@ containers:
   image_artifact: release-image-corp-finance-monitor-scheduler
   image_tag: 5706fb66d88322283821445d3d43de3038fe7f29
 rollback_history:
+- released_at: '2026-06-06T09:00:47.717900+00:00'
+  containers:
+    corp-finance-monitor-backend: sha256:3d891362140e171124be44055c681c3f830925feb3fb6cab1588a66518d0bdaf
+    corp-finance-monitor-frontend: sha256:db559e9367a5dbcd0fd6e4175bd248bc12fe34a46a4dd9afb0d9400c2514216b
+    corp-finance-monitor-scheduler: sha256:f2aef037bf592e8a72556d1cf726a5c50f87056d365d2d054f8241584d0a4f59
 - released_at: '2026-06-04T08:33:39.952140+00:00'
   containers:
     corp-finance-monitor-backend: sha256:b0e276f6332100fdcfde40009197b9196a98db423a8c93732fc34a5ff853c6f6
@@ -159,6 +164,6 @@ rollback_history:
     corp-finance-monitor-backend: sha256:fc9d8864ffd3f0a85993a3db16368ead02d68cdaad452769cd583caffb620771
     corp-finance-monitor-frontend: sha256:4efc2901bd3c6cb0b496a072fd323547f984705ffeba00a7333eba4851a0a191
     corp-finance-monitor-scheduler: sha256:0000000000000000000000000000000000000000000000000000000000000000
-updated_at: '2026-06-05T15:45:00.000000+00:00'
+updated_at: '2026-06-06T09:00:47.717915+00:00'
 artifact_source_repository: Lynskylate/corp-finance-monitor
-artifact_source_run_id: 27023634234
+artifact_source_run_id: 27057950559
