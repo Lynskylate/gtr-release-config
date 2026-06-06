@@ -1,23 +1,23 @@
 groups:
   gtr-core:
     ssh_host: gtr.tail414c32.ts.net
-    ssh_user: root
+    ssh_user: ci
     ssh_port: 22
-    require_sudo: false
+    require_sudo: true
     service_root: /srv/projects
     secret_root: /srv/project-secrets
     default_healthcheck_timeout_seconds: 60
   edge-aliyun:
-    ssh_host: 47.120.46.128
-    ssh_user: yiling
+    ssh_host: 100.102.140.59
+    ssh_user: ci
     ssh_port: 22
     require_sudo: true
     service_root: /srv/projects
     secret_root: /srv/project-secrets
     default_healthcheck_timeout_seconds: 60
   edge-tencent:
-    ssh_host: 129.211.12.63
-    ssh_user: ubuntu
+    ssh_host: 100.99.48.76
+    ssh_user: ci
     ssh_port: 22
     require_sudo: true
     service_root: /srv/projects

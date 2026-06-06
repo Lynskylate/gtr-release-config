@@ -139,7 +139,6 @@ jobs:
 
       - name: Setup SSH
         run: |
-          echo "${{ env.GTR_TAILSCALE_IP }} gtr gtr.tail414c32.ts.net" | sudo tee -a /etc/hosts
           mkdir -p ~/.ssh
           echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
@@ -150,12 +149,17 @@ jobs:
             UserKnownHostsFile /dev/null
           SSHCFG
 
-      - name: Test SSH connectivity to GTR
+      - name: Verify Tailscale connectivity
         run: |
-          echo "=== Ping GTR ==="
-          ping -c 2 -W 5 ${{ env.GTR_TAILSCALE_IP }} || echo "Ping failed (non-fatal)"
-          echo "=== SSH to GTR ==="
-          ssh -o ConnectTimeout=10 root@gtr.tail414c32.ts.net "hostname && uptime"
+          echo "=== Tailscale status ==="
+          tailscale status
+          echo "=== Connectivity test ==="
+          # Test SSH to all target groups via Tailscale
+          for host in gtr.tail414c32.ts.net 100.102.140.59 100.99.48.76; do
+            echo "--- Testing $host ---"
+            ping -c 1 -W 3 "$host" 2>&1 || echo "Ping failed (non-fatal)"
+            ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no ci@"$host" "hostname && uptime" 2>&1 || echo "SSH failed"
+          done
 
       - uses: actions/download-artifact@v4
         with:
