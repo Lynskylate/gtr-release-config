@@ -98,6 +98,14 @@ def validate_stack(data: dict[str, Any], path: Path | None = None) -> None:
     runtime = data["runtime"]
     if not isinstance(runtime, dict) or runtime.get("type") != "rootless-podman":
         raise ValidationError(f"{path or 'stack manifest'} runtime.type must be rootless-podman")
+    network = runtime.get("network") or {}
+    net_mode = network.get("mode", "bridge")
+    if net_mode not in ("bridge", "host"):
+        raise ValidationError(
+            f"{path or 'stack manifest'} runtime.network.mode must be 'bridge' or 'host' (got {net_mode!r})")
+    # bridge mode requires a CNI network name; host mode uses the host net directly.
+    if net_mode == "bridge" and not network.get("name"):
+        raise ValidationError(f"{path or 'stack manifest'} runtime.network.name is required when mode=bridge")
     containers = data["containers"]
     if not isinstance(containers, list) or not containers:
         raise ValidationError(f"{path or 'stack manifest'} containers must be a non-empty list")
@@ -120,6 +128,14 @@ def validate_stack(data: dict[str, Any], path: Path | None = None) -> None:
             raise ValidationError(f"{path or 'stack manifest'} container_port must be integer")
         if "host_port" in container and not isinstance(container["host_port"], int):
             raise ValidationError(f"{path or 'stack manifest'} host_port must be integer when present")
+        # Under host networking these CNI-only fields are meaningless (silently
+        # ignored at render) — reject them so stale config is caught at validate.
+        if net_mode == "host":
+            stale = [k for k in ("ip_address", "network_aliases", "extra_hosts") if k in container]
+            if stale:
+                raise ValidationError(
+                    f"{path or 'stack manifest'} container '{container.get('service_ref')}' "
+                    f"has CNI-only field(s) {stale} under runtime.network.mode=host; remove them")
     healthcheck = data["healthcheck"]
     if not isinstance(healthcheck, dict) or "url" not in healthcheck:
         raise ValidationError(f"{path or 'stack manifest'} healthcheck.url is required")
@@ -187,29 +203,36 @@ def render_service_unit(stack: dict[str, Any], container: dict[str, Any], target
         unit_lines.append(f"Requires={dependency}.service")
 
     image = container_image_reference(container)
+    network = (stack.get("runtime") or {}).get("network") or {}
+    net_mode = network.get("mode", "bridge")
     podman_args: list[str] = [
         "--name",
         container["container_name"],
-        "--network",
-        stack["runtime"]["network"]["name"],
         "--env-file",
         f"{target.secret_root}/{stack['service_user']}/{container['env_profile']}.env",
     ]
-    if container.get("ip_address"):
-        podman_args.extend(["--ip", str(container["ip_address"])])
-    if "host_port" in container:
-        podman_args.extend(
-            [
-                "--publish",
-                f"127.0.0.1:{container['host_port']}:{container['container_port']}",
-            ]
-        )
-    extra_hosts = container.get("extra_hosts", [])
-    for host in extra_hosts:
-        podman_args.extend(["--add-host", str(host)])
-    aliases = container.get("network_aliases", [])
-    if aliases:
-        podman_args.extend(f"--network-alias={alias}" for alias in aliases)
+    if net_mode == "host":
+        # Host networking: share the host net namespace directly. No CNI bridge,
+        # no static IP, no published ports (the container binds host ports), and
+        # no network aliases / extra_hosts (host DNS resolves everything).
+        podman_args.extend(["--network", "host"])
+    else:
+        podman_args.extend(["--network", network["name"]])
+        if container.get("ip_address"):
+            podman_args.extend(["--ip", str(container["ip_address"])])
+        if "host_port" in container:
+            podman_args.extend(
+                [
+                    "--publish",
+                    f"127.0.0.1:{container['host_port']}:{container['container_port']}",
+                ]
+            )
+        extra_hosts = container.get("extra_hosts", [])
+        for host in extra_hosts:
+            podman_args.extend(["--add-host", str(host)])
+        aliases = container.get("network_aliases", [])
+        if aliases:
+            podman_args.extend(f"--network-alias={alias}" for alias in aliases)
     limits = container.get("resource_limits", {})
     if limits.get("memory"):
         podman_args.extend(["--memory", str(limits["memory"])])
@@ -291,7 +314,8 @@ def build_apply_script(
         "service_root": service_root,
         "home_dir": home_dir,
         "unit_dir": unit_dir,
-        "network_name": stack["runtime"]["network"]["name"],
+        "network_name": stack["runtime"]["network"].get("name"),
+        "network_mode": stack["runtime"]["network"].get("mode", "bridge"),
         "secret_root": target.secret_root,
         "require_sudo": target.require_sudo,
         "containers": container_payloads,
@@ -333,6 +357,7 @@ def build_apply_script(
         home_dir = Path(payload["home_dir"])
         unit_dir = Path(payload["unit_dir"])
         network_name = payload["network_name"]
+        network_mode = payload.get("network_mode", "bridge")
         secret_base_root = Path(payload["secret_root"])
         secret_root = secret_base_root / service_user
         managed_files = payload.get("managed_files", [])
@@ -489,8 +514,9 @@ def build_apply_script(
             target_path.write_text(container["content"], encoding="utf-8")
             run(["chown", f"{service_user}:{service_user}", str(target_path)])
 
-        run_user(f"podman network exists {{network_name}} || podman network create {{network_name}}".format(network_name=network_name))
-        normalize_cni_network_config(network_name)
+        if network_mode == "bridge":
+            run_user(f"podman network exists {{network_name}} || podman network create {{network_name}}".format(network_name=network_name))
+            normalize_cni_network_config(network_name)
         if registry_auth:
             run_user_args(
                 [
