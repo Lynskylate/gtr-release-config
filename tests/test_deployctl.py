@@ -337,5 +337,124 @@ class TestDeployCtl(unittest.TestCase):
         self.assertIn('pull_with_retry(container["image"])', script)
 
 
+    def test_render_service_unit_host_networking(self) -> None:
+        """Host networking: emit --network host and ignore CNI-specific args
+        (--ip/--publish/--add-host/--network-alias)."""
+        target = deployctl.TargetGroup(
+            name="gtr-core",
+            ssh_host="gtr.tail414c32.ts.net",
+            ssh_user="root",
+            ssh_port=22,
+            require_sudo=False,
+            service_root="/srv/projects",
+            secret_root="/srv/project-secrets",
+            default_healthcheck_timeout_seconds=60,
+        )
+        stack = {
+            "service_name": "corp-finance-monitor",
+            "service_user": "svc-corp-finance-monitor",
+            "runtime": {"type": "rootless-podman", "network": {"mode": "host"}},
+        }
+        container = {
+            "service_ref": "corp-finance-monitor-backend",
+            "container_name": "corp-finance-monitor-backend",
+            "image_repository": "ccr.ccs.tencentyun.com/fin-monitor/corp-finance-monitor-backend",
+            "image_digest": "sha256:1234",
+            "image_tag": "ae20d738",
+            "env_profile": "corp-finance-monitor-backend",
+            "container_port": 8191,
+            # CNI-only fields that MUST be ignored under host mode:
+            "host_port": 8190,
+            "ip_address": "10.89.0.10",
+            "extra_hosts": ["backend:10.89.0.10"],
+            "network_aliases": ["backend"],
+        }
+
+        unit = deployctl.render_service_unit(stack, container, target)
+
+        self.assertIn("--network host", unit)
+        self.assertNotIn("--ip 10.89.0.10", unit)
+        self.assertNotIn("--publish", unit)
+        self.assertNotIn("--add-host", unit)
+        self.assertNotIn("--network-alias", unit)
+
+    def test_validate_stack_network_mode(self) -> None:
+        base = {
+            "apiVersion": "deploy.lynskylate/v1alpha1",
+            "kind": "DeploymentStack",
+            "service_name": "s",
+            "target_group": "gtr-core",
+            "service_user": "u",
+            "exposure": "tailscale",
+            "healthcheck": {"url": "http://127.0.0.1:8190/healthz"},
+            "containers": [
+                {
+                    "service_ref": "a",
+                    "container_name": "a",
+                    "image_repository": "r",
+                    "image_digest": "sha256:1",
+                    "env_profile": "e",
+                    "container_port": 80,
+                }
+            ],
+            "rollback_history": [],
+        }
+        # host mode: network.name not required
+        host = dict(base, runtime={"type": "rootless-podman", "network": {"mode": "host"}})
+        deployctl.validate_stack(host)  # must not raise
+
+        # bridge default without a name: invalid
+        bridge_no_name = dict(base, runtime={"type": "rootless-podman", "network": {}})
+        with self.assertRaises(deployctl.ValidationError):
+            deployctl.validate_stack(bridge_no_name)
+
+        # invalid mode value: invalid
+        bad_mode = dict(
+            base, runtime={"type": "rootless-podman", "network": {"mode": "weird", "name": "x"}}
+        )
+        with self.assertRaises(deployctl.ValidationError):
+            deployctl.validate_stack(bad_mode)
+
+        # bridge with name (default mode): valid
+        bridge_ok = dict(base, runtime={"type": "rootless-podman", "network": {"name": "x"}})
+        deployctl.validate_stack(bridge_ok)  # must not raise
+
+    def test_build_apply_script_guards_cni_setup_on_mode(self) -> None:
+        """build_apply_script must read network_mode and guard the CNI create/normalize
+        behind bridge mode, so host-mode deploys never touch the CNI network."""
+        target = deployctl.TargetGroup(
+            name="gtr-core",
+            ssh_host="gtr.tail414c32.ts.net",
+            ssh_user="root",
+            ssh_port=22,
+            require_sudo=False,
+            service_root="/srv/projects",
+            secret_root="/srv/project-secrets",
+            default_healthcheck_timeout_seconds=60,
+        )
+        stack = {
+            "service_name": "corp-finance-monitor",
+            "service_user": "svc-corp-finance-monitor",
+            "runtime": {"type": "rootless-podman", "network": {"mode": "host"}},
+            "healthcheck": {"url": "http://127.0.0.1:8191/healthz"},
+            "containers": [
+                {
+                    "service_ref": "corp-finance-monitor-backend",
+                    "container_name": "corp-finance-monitor-backend",
+                    "image_repository": "ccr.ccs.tencentyun.com/fin-monitor/corp-finance-monitor-backend",
+                    "image_digest": "sha256:1234",
+                    "env_profile": "corp-finance-monitor-backend",
+                    "container_port": 8191,
+                }
+            ],
+            "managed_files": [],
+        }
+
+        script = deployctl.build_apply_script(stack, target)
+
+        self.assertIn('network_mode = payload.get("network_mode", "bridge")', script)
+        self.assertIn('if network_mode == "bridge":', script)
+
+
 if __name__ == "__main__":
     unittest.main()
