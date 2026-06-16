@@ -5,7 +5,7 @@ target_group: gtr-core
 runtime:
   type: rootless-podman
   network:
-    name: corp-finance-monitor
+    mode: host
 service_user: svc-corp-finance-monitor
 exposure: tailscale
 healthcheck:
@@ -18,7 +18,7 @@ managed_files:
   content: "engine:\n  run_once: false\n  interval_minutes: 360\n  concurrency: 3\n\
     \  fetch_delay_seconds: 0.3\nstorage:\n  backend: disk\n  base_dir: ./data\nstate_store:\n\
     \  backend: sqlite\n  path: ./data/.cfm_state/state.db\napi:\n  enabled: true\n\
-    \  host: 127.0.0.1\n  port: 8190\nscheduling:\n  tiers:\n    - name: core\n  \
+    \  host: 127.0.0.1\n  port: 8191\nscheduling:\n  tiers:\n    - name: core\n  \
     \    stocks: [\"000725\", \"600519\", \"000858\"]\n      interval_minutes: 60\n\
     \    - name: full\n      interval_minutes: 720\n      use_registry: true\n  disclosure_windows:\n\
     \    - months: [1, 2, 3, 4]\n      multiplier: 0.5\n    - months: [7, 8]\n   \
@@ -38,10 +38,18 @@ containers:
   image_repository: ccr.ccs.tencentyun.com/fin-monitor/corp-finance-monitor-backend
   image_digest: sha256:89d66a1db44aeae216641f392bfbb828b01f589a59d47c27b9330bc8781834b4
   env_profile: corp-finance-monitor-backend
-  container_port: 8190
-  ip_address: 10.89.0.10
-  network_aliases:
-  - backend
+  container_port: 8191
+  entrypoint: python
+  command:
+  - -m
+  - corp_finance_monitor
+  - serve
+  - -c
+  - /app/config.yaml
+  - --host
+  - 0.0.0.0
+  - --port
+  - '8191'
   volumes:
   - source: /srv/projects/corp-finance-monitor/config/config.yaml
     target: /app/config.yaml
@@ -49,38 +57,33 @@ containers:
   - source: /srv/projects/corp-finance-monitor/data
     target: /app/data
     mode: rw
-  image_tag: ea384031787f805f640815f64767e1648372a8ee
+  image_tag: ae20d7384456e8c8e8e69777bf9b874e60403523
+  image_digest: sha256:49b6b64ba8de862e79a6b6449b37ad9f319f0b08feebe9516a772f891b020486
   image_artifact: release-image-corp-finance-monitor-backend
 - service_ref: corp-finance-monitor-frontend
   container_name: corp-finance-monitor-frontend
   image_repository: ccr.ccs.tencentyun.com/fin-monitor/corp-finance-monitor-frontend
   image_digest: sha256:b2bbd939cd0297b7ddc11995b30b1f7aacbb113a9b630445c0761cf39be82a0f
   env_profile: corp-finance-monitor-frontend
-  container_port: 80
-  host_port: 8190
+  container_port: 8190
   depends_on:
   - corp-finance-monitor-backend
-  extra_hosts:
-  - backend:10.89.0.10
-  network_aliases:
-  - frontend
   entrypoint: /bin/sh
   command:
   - -lc
-  - sed -i "s/^user  nginx;/user root;/" /etc/nginx/nginx.conf && exec nginx -g "daemon
-    off;"
+  - sed -i "s/^user  nginx;/user root;/" /etc/nginx/nginx.conf && sed -i "s|listen
+    80;|listen 8190;|" /etc/nginx/conf.d/default.conf && sed -i "s|http://backend:8190|http://127.0.0.1:8191|g"
+    /etc/nginx/conf.d/default.conf && exec nginx -g "daemon off;"
   image_tag: ea384031787f805f640815f64767e1648372a8ee
   image_artifact: release-image-corp-finance-monitor-frontend
 - service_ref: corp-finance-monitor-scheduler
   container_name: corp-finance-monitor-scheduler
   image_repository: ccr.ccs.tencentyun.com/fin-monitor/corp-finance-monitor-scheduler
-  image_digest: sha256:c56b0108c9b03ade93fc598941d7f12a049157d5f1a3c9d5c888486d9c6679e4
+  image_digest: sha256:fc90c9a3113e21eaa67e7c36619e4541b762b768dbebb4e2e3193a6eb28a6ac0
   env_profile: corp-finance-monitor-backend
   container_port: 8191
   depends_on:
   - corp-finance-monitor-backend
-  network_aliases:
-  - scheduler
   entrypoint:
   - python
   command:
@@ -97,7 +100,7 @@ containers:
     target: /app/data
     mode: rw
   image_artifact: release-image-corp-finance-monitor-scheduler
-  image_tag: ea384031787f805f640815f64767e1648372a8ee
+  image_tag: ae20d7384456e8c8e8e69777bf9b874e60403523
 rollback_history:
 - released_at: '2026-06-15T20:06:44.484968+00:00'
   containers:
